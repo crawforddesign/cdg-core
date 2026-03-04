@@ -6,7 +6,7 @@
  * for Crawford Design Group client sites.
  *
  * @package CDG_Core
- * @version 1.2.0
+ * @version 1.3.1
  * @author Crawford Design Group
  * @link https://crawforddesigngroup.com
  */
@@ -19,7 +19,7 @@ if (!defined("ABSPATH")) {
 /**
  * Plugin Constants
  */
-define("CDG_CORE_VERSION", "1.2.0");
+define("CDG_CORE_VERSION", "1.3.1");
 define("CDG_CORE_DIR", plugin_dir_path(__FILE__));
 define("CDG_CORE_URL", plugin_dir_url(__FILE__));
 define("CDG_CORE_BASENAME", plugin_basename(__FILE__));
@@ -65,6 +65,13 @@ final class CDG_Core
     private array $settings = [];
 
     /**
+     * Documentation component instance
+     *
+     * @var CDG_Core_Documentation|null
+     */
+    private ?CDG_Core_Documentation $documentation = null;
+
+    /**
      * Default settings
      *
      * @var array
@@ -80,18 +87,6 @@ final class CDG_Core
 
         // Defaults - Divi Projects
         "hide_divi_projects" => false,
-        "enable_project_rename" => false,
-        "project_rename_plural" => "Projects",
-        "project_rename_singular" => "Project",
-        "project_rename_menu" => "Projects",
-        "project_rename_icon" => "dashicons-portfolio",
-
-        // Defaults - Post Rename
-        "enable_post_rename" => false,
-        "post_rename_plural" => "Slides",
-        "post_rename_singular" => "Slide",
-        "post_rename_menu" => "Slides",
-        "post_rename_icon" => "dashicons-slides",
 
         // WordPress Cleanup
         "remove_wp_version" => true,
@@ -107,10 +102,13 @@ final class CDG_Core
         "disable_xmlrpc" => true,
         "block_dangerous_uploads" => true,
         "remove_powered_by" => true,
-        "add_frame_options" => true,
         "disable_code_editor" => true,
         "enable_svg_uploads" => false,
         "svg_admin_only" => true,
+        "enable_font_uploads" => false,
+        "font_admin_only" => true,
+        "enable_lottie_uploads" => false,
+        "lottie_admin_only" => true,
 
         // Dashboard Widgets
         "remove_quick_draft" => true,
@@ -127,7 +125,6 @@ final class CDG_Core
         "heartbeat_admin" => "60",
         "heartbeat_frontend" => "disable",
         "heartbeat_exception_builder" => true,
-        "heartbeat_exception_gf" => true,
 
         // Gutenberg
         "gutenberg_mode" => "optimize",
@@ -154,7 +151,19 @@ final class CDG_Core
         // Admin
         "admin_footer_text" =>
             'Website by <a href="https://crawforddesigngroup.com" target="_blank">Crawford Design Group</a>',
-        "custom_admin_css" => "",
+        "custom_admin_css" => '#wpfooter a { color: #F34F27; }
+#adminmenu .wp-submenu-head, #adminmenu a.menu-top { font-size: 12px; font-weight: 500; }
+#adminmenu .wp-submenu a { font-size: 11px; }
+#wpbody-content, #wpcontent { background-color: #f7f7f8; }
+.postbox, .stuffbox { border-radius: 8px; overflow: hidden; }
+input[type=text], input[type=email], input[type=url], input[type=password], input[type=search], input[type=number], input[type=checkbox], input[type=date], input[type=datetime], input[type=month], textarea, select { border-radius: 6px; box-shadow: none; border-color: #e0e0e0; }
+.button, .button-primary, .button-secondary { border-radius: 6px; }
+.postbox, #poststuff #post-body .postbox { border-color: #e0e0e0; }
+.postbox { margin-bottom: 16px; border: 1px solid #eaeaea; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); }
+.postbox .inside { padding: 12px 16px; }
+.button, .button-primary, .button-secondary, input, textarea, select { transition: all 0.15s ease; }
+#title { font-size: 1.4em; padding: 8px 12px; border-color: #e0e0e0; border-radius: 6px; }
+#title:focus { border-color: #3858e9; box-shadow: 0 0 0 1px #3858e9; }',
 
         // Documentation
         "show_documentation_widgets" => true,
@@ -201,6 +210,11 @@ final class CDG_Core
     private function load_settings(): void
     {
         $saved = get_option("cdg_core_settings", []);
+
+        if (!is_array($saved)) {
+            $saved = [];
+        }
+
         $this->settings = wp_parse_args($saved, $this->defaults);
     }
 
@@ -223,18 +237,19 @@ final class CDG_Core
     /**
      * Run activation tasks
      *
-     * This runs on 'init' hook to ensure WordPress rewrite rules are available.
+     * Reuses the stored Documentation component instance rather than
+     * creating a duplicate. Runs on 'init' hook to ensure WordPress
+     * rewrite rules are available.
      *
      * @return void
      */
     public function run_activation(): void
     {
-        // Create documentation CPT and taxonomy
-        if (class_exists("CDG_Core_Documentation")) {
-            $doc = new CDG_Core_Documentation($this);
-            $doc->register_post_type();
-            $doc->register_taxonomy();
-            $doc->create_default_categories();
+        // Reuse existing Documentation instance if available
+        if ($this->documentation) {
+            $this->documentation->register_post_type();
+            $this->documentation->register_taxonomy();
+            $this->documentation->create_default_categories();
         }
 
         // Flush rewrite rules - must happen after post types are registered
@@ -253,12 +268,12 @@ final class CDG_Core
         new CDG_Core_Security($this);
         new CDG_Core_Performance($this);
 
-        // Defaults (Comments, Projects, Posts)
+        // Defaults (Comments, Projects)
         new CDG_Core_Defaults($this);
 
         // Features
         if ($this->get_setting("enable_documentation")) {
-            new CDG_Core_Documentation($this);
+            $this->documentation = new CDG_Core_Documentation($this);
         }
 
         if ($this->get_setting("enable_cpt_widgets")) {
@@ -271,6 +286,12 @@ final class CDG_Core
 
         // SVG Support - initialize regardless of setting (class checks internally)
         new CDG_Core_SVG_Support($this);
+
+        // Font Support - initialize regardless of setting (class checks internally)
+        new CDG_Core_Font_Support($this);
+
+        // Lottie Support - initialize regardless of setting (class checks internally)
+        new CDG_Core_Lottie_Support($this);
 
         // Admin
         if (is_admin()) {
@@ -368,8 +389,8 @@ final class CDG_Core
     {
         return sprintf(
             "CDG Core %s | WordPress %s",
-            CDG_CORE_VERSION,
-            get_bloginfo("version"),
+            esc_html(CDG_CORE_VERSION),
+            esc_html(get_bloginfo("version")),
         );
     }
 
