@@ -151,7 +151,19 @@ final class CDG_Core
     // Admin
     "admin_footer_text" =>
       'Website by <a href="https://crawforddesigngroup.com" target="_blank">Crawford Design Group</a>',
-    "custom_admin_css" => "",
+    "custom_admin_css" => '#wpfooter a { color: #F34F27; }
+#adminmenu .wp-submenu-head, #adminmenu a.menu-top { font-size: 12px; font-weight: 500; }
+#adminmenu .wp-submenu a { font-size: 11px; }
+#wpbody-content, #wpcontent { background-color: #f7f7f8; }
+.postbox, .stuffbox { border-radius: 8px; overflow: hidden; }
+input[type=text], input[type=email], input[type=url], input[type=password], input[type=search], input[type=number], input[type=checkbox], input[type=date], input[type=datetime], input[type=month], textarea, select { border-radius: 6px; box-shadow: none; border-color: #e0e0e0; }
+.button, .button-primary, .button-secondary { border-radius: 6px; }
+.postbox, #poststuff #post-body .postbox { border-color: #e0e0e0; }
+.postbox { margin-bottom: 16px; border: 1px solid #eaeaea; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); }
+.postbox .inside { padding: 12px 16px; }
+.button, .button-primary, .button-secondary, input, textarea, select { transition: all 0.15s ease; }
+#title { font-size: 1.4em; padding: 8px 12px; border-color: #e0e0e0; border-radius: 6px; }
+#title:focus { border-color: #3858e9; box-shadow: 0 0 0 1px #3858e9; }',
 
     // Theme Color
     "theme_color_mode" => "auto",

@@ -244,7 +244,7 @@ class CDG_Core_SVG_Support
             }
         }
 
-        // Remove processing instructions (<?xml-stylesheet ?> etc.)
+        // Remove processing instructions (e.g. xml-stylesheet)
         foreach ($xpath->query('//processing-instruction()') ?: [] as $pi) {
             if ($pi->parentNode) {
                 $pi->parentNode->removeChild($pi);
