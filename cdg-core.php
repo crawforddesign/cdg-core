@@ -7,7 +7,7 @@
  * Place the cdg-core folder in /wp-content/mu-plugins/cdg-core/
  *
  * @package CDG_Core
- * @version 1.3.1
+ * @version 1.3.2
  */
 
 // Prevent direct access

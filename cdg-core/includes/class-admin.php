@@ -254,6 +254,23 @@ class CDG_Core_Admin
         $s["custom_admin_css"] = wp_strip_all_tags(
           $input["custom_admin_css"] ?? ""
         );
+
+        // Theme Color
+        $s["theme_color_mode"] = in_array(
+          $input["theme_color_mode"] ?? "auto",
+          ["auto", "custom", "disabled"],
+          true
+        )
+          ? sanitize_text_field($input["theme_color_mode"])
+          : "auto";
+
+        $hex = sanitize_text_field($input["theme_color_hex"] ?? "#ffffff");
+        $s["theme_color_hex"] = preg_match(
+          '/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/',
+          $hex
+        )
+          ? $hex
+          : "#ffffff";
         break;
     }
 
@@ -1112,6 +1129,55 @@ class CDG_Core_Admin
                     ); ?>" class="large-text">
                     <p class="description"><?php esc_html_e(
                       "HTML allowed.",
+                      "cdg-core"
+                    ); ?></p>
+                </td>
+            </tr>
+        </table>
+
+        <h2><?php esc_html_e("Browser Theme Color", "cdg-core"); ?></h2>
+        <p class="description"><?php esc_html_e(
+          "Controls the theme-color meta tag used by browsers and mobile devices to tint the address bar and UI.",
+          "cdg-core"
+        ); ?></p>
+        <table class="form-table">
+            <tr>
+                <th><?php esc_html_e("Mode", "cdg-core"); ?></th>
+                <td>
+                    <?php foreach (
+                      [
+                        "auto" => __(
+                          "Auto-detect from Divi accent color",
+                          "cdg-core"
+                        ),
+                        "custom" => __("Custom color", "cdg-core"),
+                        "disabled" => __("Disabled (no meta tag)", "cdg-core"),
+                      ]
+                      as $val => $label
+                    ): ?>
+                        <label style="display:block;">
+                            <input type="radio" name="theme_color_mode" value="<?php echo esc_attr(
+                              $val
+                            ); ?>" <?php checked(
+  $s["theme_color_mode"],
+  $val
+); ?>>
+                            <?php echo esc_html($label); ?>
+                        </label>
+                    <?php endforeach; ?>
+                </td>
+            </tr>
+            <tr>
+                <th><?php esc_html_e("Custom Color", "cdg-core"); ?></th>
+                <td>
+                    <input type="text" name="theme_color_hex" value="<?php echo esc_attr(
+                      $s["theme_color_hex"]
+                    ); ?>" class="cdg-color-field" placeholder="#F34F27" pattern="^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$" style="width: 100px;">
+                    <span class="cdg-color-preview" style="display: inline-block; width: 24px; height: 24px; vertical-align: middle; margin-left: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: <?php echo esc_attr(
+                      $s["theme_color_hex"]
+                    ); ?>;"></span>
+                    <p class="description"><?php esc_html_e(
+                      "Enter a hex color (e.g., #F34F27). Only used when mode is set to Custom.",
                       "cdg-core"
                     ); ?></p>
                 </td>

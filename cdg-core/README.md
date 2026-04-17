@@ -2,7 +2,14 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.2.1
+## Version 1.3.1
+
+### Requirements
+
+- WordPress 6.0+
+- PHP 8.0+
+- Divi 4.0+
+- SpinupWP hosting (recommended)
 
 ### Installation
 
@@ -14,28 +21,53 @@ WordPress optimizations, security hardening, and agency features for Crawford De
 
 - WordPress head cleanup & emoji removal
 - Security hardening (XML-RPC, uploads, headers)
-- **SVG upload support**
+- **SVG upload support** with admin-only restriction
+- **Font upload support** (OTF, TTF, WOFF, WOFF2) with admin-only restriction
+- **Lottie/JSON upload support** with admin-only restriction
 - Performance optimizations (Gutenberg, queries, images)
 - Gravity Forms / Divi compatibility fixes
 - Documentation system for editors
 - CPT Dashboard widgets
-- **Disable Comments** (v1.2.0)
-- **Hide Divi Projects** (v1.2.0)
-- **Rename Divi Projects** (v1.2.0)
-- Post type renaming
-- Admin branding & custom CSS
+- **Disable Comments** (full system disable)
+- **Hide Divi Projects**
+- Admin branding & default admin CSS
+
+### File Structure
+
+```
+mu-plugins/
+├── cdg-core.php                      ← Loader file
+└── cdg-core/
+	├── cdg-core-main.php             ← Main plugin file
+	├── README.md
+	├── includes/
+	│   ├── class-admin.php           ← Admin UI & settings
+	│   ├── class-cleanup.php         ← WordPress head cleanup
+	│   ├── class-cpt-dashboard.php   ← CPT dashboard widgets
+	│   ├── class-defaults.php        ← Comments & Divi defaults
+	│   ├── class-documentation.php   ← Documentation CPT
+	│   ├── class-font-support.php    ← Font upload support
+	│   ├── class-gravity-forms.php   ← GF/Divi compatibility
+	│   ├── class-lottie-support.php  ← Lottie upload support
+	│   ├── class-performance.php     ← Performance optimizations
+	│   ├── class-security.php        ← Security hardening
+	│   └── class-svg-support.php     ← SVG upload support
+	└── admin/
+		├── js/admin-script.js
+		└── css/admin-style.css
+```
 
 ### Settings Tabs
 
-| Tab | Description |
-|-----|-------------|
-| **Features** | Documentation system, CPT widgets |
-| **Defaults** | Comments, Divi Projects, Post renaming |
-| **WordPress Cleanup** | Head cleanup, dashboard widgets, heartbeat |
-| **Security** | XML-RPC, uploads, X-Powered-By, SVG support |
-| **Performance** | Gutenberg, queries, images, revisions |
-| **Gravity Forms** | Divi/GF compatibility fixes |
-| **Admin** | Branding, custom CSS |
+| Tab                   | Description                                             |
+| --------------------- | ------------------------------------------------------- |
+| **Features**          | Documentation system, CPT widgets                       |
+| **Defaults**          | Comments, Divi Projects                                 |
+| **WordPress Cleanup** | Head cleanup, dashboard widgets, heartbeat              |
+| **Security**          | XML-RPC, uploads, X-Powered-By, SVG/Font/Lottie support |
+| **Performance**       | Gutenberg, queries, images, revisions                   |
+| **Gravity Forms**     | Divi/GF compatibility fixes                             |
+| **Admin**             | Branding, custom CSS                                    |
 
 ### SpinupWP Compatibility
 
@@ -55,52 +87,53 @@ CDG Core complements SpinupWP by handling:
 
 ### Defaults Tab
 
-The **Defaults** tab contains settings for modifying WordPress and Divi default behavior:
-
 #### Disable Comments
+
 Completely disables WordPress comments:
+
 - Removes comment support from all post types
 - Hides Comments menu from admin
 - Hides Discussion settings page
 - Blocks access to comment admin pages
 - Disables comment REST API endpoints
-- Disables comment feeds
+- Disables comment feeds (301 redirect to home)
 - Removes pingback headers
 
 #### Hide Divi Projects
+
 Fully disables Divi's built-in Projects post type:
+
 - Unregisters the `project` post type
 - Removes Project Categories taxonomy
 - Removes Project Tags taxonomy
 - Redirects any direct access to project admin pages
 
-#### Rename Divi Projects
-Customize the Projects post type labels (only when not hidden):
-- Plural name (e.g., "Portfolio")
-- Singular name (e.g., "Portfolio Item")
-- Menu name
-- Menu icon (dashicon)
+### Security Tab
 
-#### Rename Posts
-Customize the default Posts post type labels:
-- Plural name (e.g., "Slides")
-- Singular name (e.g., "Slide")
-- Menu name
-- Menu icon (dashicon)
+#### SVG Upload Support
 
-### SVG Upload Support
+When enabled, SVG and SVGZ files can be uploaded through the Media Library with preview support and automatic dimension detection.
 
-CDG Core includes SVG upload support. When enabled:
+- **Enable SVG Uploads**: Disabled by default
+- **Restrict to Admins**: Enabled by default
 
-- SVG and SVGZ files can be uploaded through the Media Library
-- SVG previews display correctly in the Media Library
-- Dimensions are automatically detected from SVG viewBox/width/height
+#### Font Upload Support
 
-**Settings:**
-- **Enable SVG Uploads**: Allow SVG file uploads (disabled by default)
-- **Restrict to Admins**: Only allow administrators to upload SVGs (enabled by default)
+When enabled, custom font files can be uploaded through the Media Library for use with Divi or custom CSS `@font-face` declarations.
 
-Find these settings under **Settings → CDG Core → Security**.
+Supported formats: OTF, TTF, WOFF, WOFF2
+
+- **Enable Font Uploads**: Disabled by default
+- **Restrict to Admins**: Enabled by default
+
+#### Lottie Upload Support
+
+When enabled, Lottie animation files can be uploaded through the Media Library for use with Divi or animation libraries.
+
+Supported formats: .json, .lottie
+
+- **Enable Lottie Uploads**: Disabled by default
+- **Restrict to Admins**: Enabled by default
 
 ### Heartbeat Control
 
@@ -118,17 +151,59 @@ Control how many revisions WordPress keeps:
 - **Disabled**: No revisions saved
 - **Limited**: Specify a number (e.g., 5 revisions per post)
 
-Alternatively, add to `wp-config.php`:
+Note: The CDG Core setting overrides any `WP_POST_REVISIONS` constant in `wp-config.php`.
 
-```php
-define('WP_POST_REVISIONS', 5);
+### Admin Branding
+
+- Custom admin footer text with CDG branding
+- CDG Core version and WordPress version in footer
+- Default admin CSS for polished admin UI (rounded corners, consistent borders, CDG accent color)
+- Custom admin CSS field for per-site overrides
+
+### Deployment
+
+CDG Core is deployed from GitHub using a shell script. See `CDG-Core-Deployment-Guide.md` for the full workflow.
+
+```bash
+# Deploy to all servers
+GITHUB_TOKEN="your_token" ./deploy-cdg-core.sh all
+
+# Deploy to production only
+GITHUB_TOKEN="your_token" ./deploy-cdg-core.sh anchorage
+
+# Deploy to development only
+GITHUB_TOKEN="your_token" ./deploy-cdg-core.sh development
 ```
-
-Note: The CDG Core setting overrides the wp-config.php constant.
 
 ### Changelog
 
+#### 1.3.1
+
+- Added Font upload support (OTF, TTF, WOFF, WOFF2) with admin-only restriction
+- Added Lottie/JSON upload support (.json, .lottie) with admin-only restriction
+- Added default admin CSS for polished admin UI styling
+- Added admin JS toggles for Font and Lottie admin-only options
+- New classes: `CDG_Core_Font_Support`, `CDG_Core_Lottie_Support`
+
+#### 1.3.0
+
+- Removed post type renaming feature (Posts rename)
+- Removed Divi Projects renaming feature
+- Fixed duplicate DNS prefetch removal between Cleanup and Performance classes
+- Extracted duplicate `gf_global` data construction into shared private method
+- Fixed Documentation component creating duplicate instances during activation
+- Fixed redundant type check in `add_lazy_loading()` method
+- Fixed leading space in inline style concatenation for aspect-ratio
+- Fixed version constant mismatch between loader and main plugin file
+- Changed comment feed disable from 403 to 301 redirect for better SEO
+- Added plugin activation/deactivation cache invalidation for dashboard widgets
+- Added `is_array()` safety check on `get_option()` return in `load_settings()`
+- Added proper `esc_html()` escaping to version constant in admin footer
+- Cleaned up admin JavaScript (removed rename-related toggle handlers)
+- Code cleanup and PHPDoc improvements
+
 #### 1.2.1
+
 - Removed X-Frame-Options header (handled by SpinupWP at Nginx level)
 - Removed Gravity Forms heartbeat exception (simplified heartbeat control)
 - Moved frontend heartbeat control to `init` hook for more reliable script deregistration
@@ -136,6 +211,7 @@ Note: The CDG Core setting overrides the wp-config.php constant.
 - Code cleanup and documentation improvements
 
 #### 1.2.0
+
 - Added "Defaults" tab for WordPress/Divi default modifications
 - Added Disable Comments feature (full comment system disable)
 - Added Hide Divi Projects feature
@@ -144,9 +220,11 @@ Note: The CDG Core setting overrides the wp-config.php constant.
 - Consolidated post type modification functionality into new `CDG_Core_Defaults` class
 
 #### 1.1.0
+
 - Added SVG upload support
 - Added admin-only restriction option for SVG uploads
 - Added SVG preview support in Media Library
 
 #### 1.0.0
+
 - Initial release
