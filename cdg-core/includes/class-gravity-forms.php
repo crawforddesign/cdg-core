@@ -20,6 +20,13 @@ class CDG_Core_Gravity_Forms
     private CDG_Core $plugin;
 
     /**
+     * Cached result of should_apply_fixes()
+     *
+     * @var bool|null
+     */
+    private ?bool $should_apply_cache = null;
+
+    /**
      * Constructor
      *
      * @param CDG_Core $plugin Plugin instance
@@ -52,13 +59,18 @@ class CDG_Core_Gravity_Forms
     }
 
     /**
-     * Check if fixes should be applied
+     * Check if fixes should be applied (cached after first call)
      *
      * @return bool
      */
     private function should_apply_fixes(): bool
     {
+        if ($this->should_apply_cache !== null) {
+            return $this->should_apply_cache;
+        }
+
         if (is_admin()) {
+            $this->should_apply_cache = false;
             return false;
         }
 
@@ -69,11 +81,13 @@ class CDG_Core_Gravity_Forms
             if (!is_array($pages)) {
                 $pages = [];
             }
-            return $this->is_on_specified_pages($pages);
+            $this->should_apply_cache = $this->is_on_specified_pages($pages);
+            return $this->should_apply_cache;
         }
 
         // Auto-detect mode
-        return $this->page_has_gravity_form();
+        $this->should_apply_cache = $this->page_has_gravity_form();
+        return $this->should_apply_cache;
     }
 
     /**
@@ -224,13 +238,16 @@ class CDG_Core_Gravity_Forms
     /**
      * Disable Divi dynamic asset optimization on GF pages
      *
+     * Returns false to force Divi to load all assets (disabling its
+     * selective/dynamic loading) so Gravity Forms scripts are not broken.
+     *
      * @param mixed $enabled Current setting
      * @return bool
      */
     public function disable_divi_optimization($enabled): bool
     {
         if ($this->should_apply_fixes()) {
-            return true;
+            return false;
         }
 
         return (bool) $enabled;

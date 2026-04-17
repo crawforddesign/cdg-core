@@ -6,7 +6,7 @@
  * for Crawford Design Group client sites.
  *
  * @package CDG_Core
- * @version 1.3.1
+ * @version 1.4.0
  * @author Crawford Design Group
  * @link https://crawforddesigngroup.com
  */
@@ -19,7 +19,7 @@ if (!defined("ABSPATH")) {
 /**
  * Plugin Constants
  */
-define("CDG_CORE_VERSION", "1.3.1");
+define("CDG_CORE_VERSION", "1.4.0");
 define("CDG_CORE_DIR", plugin_dir_path(__FILE__));
 define("CDG_CORE_URL", plugin_dir_url(__FILE__));
 define("CDG_CORE_BASENAME", plugin_basename(__FILE__));
@@ -152,6 +152,10 @@ final class CDG_Core
     "admin_footer_text" =>
       'Website by <a href="https://crawforddesigngroup.com" target="_blank">Crawford Design Group</a>',
     "custom_admin_css" => "",
+
+    // Theme Color
+    "theme_color_mode" => "auto",
+    "theme_color_hex" => "#ffffff",
 
     // Documentation
     "show_documentation_widgets" => true,
@@ -304,6 +308,12 @@ final class CDG_Core
     if (!empty($this->get_setting("custom_admin_css"))) {
       add_action("admin_head", [$this, "output_custom_admin_css"]);
     }
+
+    // Theme color meta tag
+    $theme_color_mode = $this->get_setting("theme_color_mode");
+    if ($theme_color_mode !== "disabled") {
+      add_action("wp_head", [$this, "output_theme_color_meta"], 1);
+    }
   }
 
   /**
@@ -394,6 +404,36 @@ final class CDG_Core
       printf(
         '<style id="cdg-core-admin-css">%s</style>',
         wp_strip_all_tags($css)
+      );
+    }
+  }
+
+  /**
+   * Output theme-color meta tag
+   *
+   * Supports auto-detection from Divi accent color or a custom hex value.
+   *
+   * @return void
+   */
+  public function output_theme_color_meta(): void
+  {
+    $mode = $this->get_setting("theme_color_mode");
+    $color = "";
+
+    if ($mode === "custom") {
+      $color = $this->get_setting("theme_color_hex");
+    } elseif ($mode === "auto") {
+      // Try Divi accent color
+      $et_accent = get_option("et_divi");
+      if (is_array($et_accent) && !empty($et_accent["accent_color"])) {
+        $color = $et_accent["accent_color"];
+      }
+    }
+
+    if (!empty($color) && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $color)) {
+      printf(
+        '<meta name="theme-color" content="%s">' . "\n",
+        esc_attr($color)
       );
     }
   }

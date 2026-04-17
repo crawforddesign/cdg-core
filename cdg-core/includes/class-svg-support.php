@@ -34,6 +34,33 @@ class CDG_Core_SVG_Support
     }
 
     /**
+     * Dangerous SVG elements that can execute code
+     *
+     * @var array<int, string>
+     */
+    private const DANGEROUS_ELEMENTS = [
+        'script',
+        'foreignObject',
+        'set',
+        'animate',
+        'animateTransform',
+        'animateMotion',
+    ];
+
+    /**
+     * Dangerous SVG attributes (event handlers and remote loading)
+     *
+     * @var array<int, string>
+     */
+    private const DANGEROUS_ATTRIBUTES = [
+        'onload', 'onclick', 'onmouseover', 'onmouseout', 'onmousedown',
+        'onmouseup', 'onmousemove', 'onfocus', 'onblur', 'onerror',
+        'onabort', 'onchange', 'oninput', 'onkeydown', 'onkeypress',
+        'onkeyup', 'onresize', 'onscroll', 'onunload', 'onbegin', 'onend',
+        'onrepeat', 'onactivate', 'onfocusin', 'onfocusout',
+    ];
+
+    /**
      * Setup hooks
      *
      * @return void
@@ -50,6 +77,9 @@ class CDG_Core_SVG_Support
             10,
             5,
         );
+
+        // Sanitize SVG on upload
+        add_filter("wp_handle_upload_prefilter", [$this, "sanitize_svg_upload"]);
 
         // Add SVG preview support in media library
         add_filter(
@@ -88,6 +118,142 @@ class CDG_Core_SVG_Support
         $mimes["svgz"] = "image/svg+xml";
 
         return $mimes;
+    }
+
+    /**
+     * Sanitize SVG file on upload
+     *
+     * Strips dangerous elements (script, foreignObject), event handler
+     * attributes, and external resource references from SVG files.
+     *
+     * @param array<string, mixed> $file Upload file data
+     * @return array<string, mixed>
+     */
+    public function sanitize_svg_upload(array $file): array
+    {
+        $ext = strtolower(pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
+
+        if (!in_array($ext, ['svg', 'svgz'], true)) {
+            return $file;
+        }
+
+        $file_path = $file['tmp_name'] ?? '';
+
+        if (empty($file_path) || !file_exists($file_path)) {
+            return $file;
+        }
+
+        $content = file_get_contents($file_path);
+
+        if ($content === false) {
+            $file['error'] = __('Could not read SVG file for sanitization.', 'cdg-core');
+            return $file;
+        }
+
+        // Decompress gzipped SVGs
+        if ($ext === 'svgz') {
+            $content = gzdecode($content);
+            if ($content === false) {
+                $file['error'] = __('Could not decompress SVGZ file.', 'cdg-core');
+                return $file;
+            }
+        }
+
+        $sanitized = $this->sanitize_svg_content($content);
+
+        if ($sanitized === null) {
+            $file['error'] = __('SVG file contains invalid XML and could not be sanitized.', 'cdg-core');
+            return $file;
+        }
+
+        // Write sanitized content back
+        if ($ext === 'svgz') {
+            $sanitized = gzencode($sanitized);
+        }
+
+        file_put_contents($file_path, $sanitized);
+
+        return $file;
+    }
+
+    /**
+     * Sanitize SVG XML content
+     *
+     * @param string $content Raw SVG XML
+     * @return string|null Sanitized SVG XML, or null on parse failure
+     */
+    private function sanitize_svg_content(string $content): ?string
+    {
+        libxml_use_internal_errors(true);
+
+        $doc = new \DOMDocument();
+        $loaded = $doc->loadXML($content, LIBXML_NONET | LIBXML_NOENT);
+
+        libxml_clear_errors();
+        libxml_use_internal_errors(false);
+
+        if (!$loaded) {
+            return null;
+        }
+
+        // Remove dangerous elements
+        foreach (self::DANGEROUS_ELEMENTS as $tag) {
+            $elements = $doc->getElementsByTagName($tag);
+            // Iterate in reverse to avoid index shifting during removal
+            for ($i = $elements->length - 1; $i >= 0; $i--) {
+                $el = $elements->item($i);
+                if ($el && $el->parentNode) {
+                    $el->parentNode->removeChild($el);
+                }
+            }
+        }
+
+        // Remove dangerous attributes and xlink:href with data:/javascript:
+        $xpath = new \DOMXPath($doc);
+        $all_elements = $xpath->query('//*');
+
+        if ($all_elements) {
+            foreach ($all_elements as $element) {
+                if (!$element instanceof \DOMElement) {
+                    continue;
+                }
+
+                // Remove event handler attributes
+                $attrs_to_remove = [];
+                foreach ($element->attributes as $attr) {
+                    $attr_name = strtolower($attr->nodeName);
+
+                    // Event handlers
+                    if (in_array($attr_name, self::DANGEROUS_ATTRIBUTES, true)) {
+                        $attrs_to_remove[] = $attr->nodeName;
+                        continue;
+                    }
+
+                    // Check for javascript: or data: URIs in href/xlink:href/src
+                    if (in_array($attr_name, ['href', 'xlink:href', 'src'], true)) {
+                        $val = trim(strtolower($attr->nodeValue));
+                        if (preg_match('/^(javascript|data):/i', $val)) {
+                            $attrs_to_remove[] = $attr->nodeName;
+                        }
+                    }
+                }
+
+                foreach ($attrs_to_remove as $attr_name) {
+                    $element->removeAttribute($attr_name);
+                }
+            }
+        }
+
+        // Remove processing instructions (<?xml-stylesheet ?> etc.)
+        foreach ($xpath->query('//processing-instruction()') ?: [] as $pi) {
+            if ($pi->parentNode) {
+                $pi->parentNode->removeChild($pi);
+            }
+        }
+
+        $result = $doc->saveXML($doc->documentElement);
+
+        return $result !== false ? $result : null;
     }
 
     /**

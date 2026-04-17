@@ -44,6 +44,13 @@ class CDG_Core_Lottie_Support
   }
 
   /**
+   * Required top-level keys that identify a valid Lottie animation
+   *
+   * @var array<int, string>
+   */
+  private const LOTTIE_REQUIRED_KEYS = ['v', 'fr', 'ip', 'op', 'layers'];
+
+  /**
    * Setup hooks
    *
    * @return void
@@ -60,6 +67,9 @@ class CDG_Core_Lottie_Support
       10,
       5
     );
+
+    // Validate JSON uploads are actually Lottie files
+    add_filter("wp_handle_upload_prefilter", [$this, "validate_lottie_upload"]);
   }
 
   /**
@@ -86,6 +96,58 @@ class CDG_Core_Lottie_Support
     }
 
     return $mimes;
+  }
+
+  /**
+   * Validate that uploaded JSON files are Lottie animations
+   *
+   * Checks for required top-level keys (v, fr, ip, op, layers) that
+   * every valid Lottie animation must contain.
+   *
+   * @param array<string, mixed> $file Upload file data
+   * @return array<string, mixed>
+   */
+  public function validate_lottie_upload(array $file): array
+  {
+    $ext = strtolower(pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
+
+    if (!in_array($ext, ['json', 'lottie'], true)) {
+      return $file;
+    }
+
+    $file_path = $file['tmp_name'] ?? '';
+
+    if (empty($file_path) || !file_exists($file_path)) {
+      return $file;
+    }
+
+    $content = file_get_contents($file_path);
+
+    if ($content === false) {
+      $file['error'] = __('Could not read JSON file for validation.', 'cdg-core');
+      return $file;
+    }
+
+    $data = json_decode($content, true);
+
+    if (!is_array($data)) {
+      $file['error'] = __('File is not valid JSON.', 'cdg-core');
+      return $file;
+    }
+
+    // Check for required Lottie keys
+    foreach (self::LOTTIE_REQUIRED_KEYS as $key) {
+      if (!array_key_exists($key, $data)) {
+        $file['error'] = sprintf(
+          /* translators: %s: missing key name */
+          __('JSON file does not appear to be a Lottie animation (missing "%s" key). Only Lottie animation files are allowed.', 'cdg-core'),
+          $key
+        );
+        return $file;
+      }
+    }
+
+    return $file;
   }
 
   /**

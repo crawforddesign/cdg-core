@@ -181,6 +181,13 @@ class CDG_Core_Performance
     /**
      * Optimize archive queries
      *
+     * Note: We intentionally do NOT disable update_post_meta_cache or
+     * update_post_term_cache here. Disabling those caches only helps if
+     * template code never accesses post meta or terms. Since most themes
+     * (especially Divi) display categories, tags, and custom fields on
+     * archives, disabling the batch prefetch causes N+1 individual queries
+     * — worse than the default behavior.
+     *
      * @param \WP_Query $query Query object
      * @return void
      */
@@ -188,11 +195,6 @@ class CDG_Core_Performance
     {
         if (is_admin() || !$query->is_main_query()) {
             return;
-        }
-
-        if ($query->is_archive() || $query->is_home()) {
-            $query->set('update_post_meta_cache', false);
-            $query->set('update_post_term_cache', false);
         }
 
         if ($query->is_category() || $query->is_tag()) {

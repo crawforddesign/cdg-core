@@ -78,6 +78,9 @@ class CDG_Core_Cleanup
     /**
      * Capture all registered dashboard widgets for admin UI
      *
+     * Only writes the transient if the widget list has changed,
+     * avoiding unnecessary DB writes on every dashboard load.
+     *
      * @return void
      */
     public function capture_dashboard_widgets(): void
@@ -123,8 +126,11 @@ class CDG_Core_Cleanup
             }
         }
 
-        // Store for admin UI
-        set_transient('cdg_dashboard_widgets', $widgets, HOUR_IN_SECONDS);
+        // Only write transient if the widget list has changed
+        $existing = get_transient('cdg_dashboard_widgets');
+        if ($existing !== $widgets) {
+            set_transient('cdg_dashboard_widgets', $widgets, DAY_IN_SECONDS);
+        }
     }
 
     /**

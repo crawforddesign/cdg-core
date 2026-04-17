@@ -97,18 +97,21 @@ class CDG_Core_Admin
       wp_die(__("Permission denied.", "cdg-core"));
     }
 
+    $tab = sanitize_text_field($_POST["cdg_core_tab"] ?? "features");
+
     $settings = $this->sanitize_settings($_POST);
     $this->plugin->update_settings($settings);
-    flush_rewrite_rules();
+
+    // Only flush rewrite rules when saving tabs that affect post types/rewrites
+    $tabs_needing_flush = ['features', 'defaults'];
+    if (in_array($tab, $tabs_needing_flush, true)) {
+      flush_rewrite_rules();
+    }
 
     // Redirect back with success message
     $redirect_url = admin_url("options-general.php?page=cdg-core-settings");
-    if (isset($_POST["cdg_core_tab"])) {
-      $redirect_url = add_query_arg(
-        "tab",
-        sanitize_text_field($_POST["cdg_core_tab"]),
-        $redirect_url
-      );
+    if (!empty($tab)) {
+      $redirect_url = add_query_arg("tab", $tab, $redirect_url);
     }
     $redirect_url = add_query_arg("settings-updated", "true", $redirect_url);
 
