@@ -73,30 +73,30 @@ class CDG_Core_Performance
             add_filter('use_block_editor_for_post', '__return_false');
             add_filter('use_block_editor_for_post_type', '__return_false');
         }
-        
+
         // Query optimizations
         if ($this->plugin->get_setting('optimize_search')) {
             add_action('pre_get_posts', [$this, 'optimize_search_queries']);
         }
-        
+
         if ($this->plugin->get_setting('optimize_archives')) {
             add_action('pre_get_posts', [$this, 'optimize_archive_queries']);
         }
-        
+
         // Lazy loading
         if ($this->plugin->get_setting('enable_lazy_loading')) {
             add_filter('wp_get_attachment_image_attributes', [$this, 'add_lazy_loading'], 10, 3);
         }
-        
+
         // Image sizes
         add_filter('intermediate_image_sizes_advanced', [$this, 'filter_image_sizes']);
-        
+
         // DNS prefetch
         if ($this->plugin->get_setting('remove_dns_prefetch')) {
             add_filter('wp_resource_hints', [$this, 'remove_dns_prefetch'], 10, 2);
         }
-        
-        // Post revisions - this filter actually works at runtime
+
+        // Post revisions
         add_filter('wp_revisions_to_keep', [$this, 'limit_post_revisions'], 10, 2);
     }
 
@@ -110,7 +110,7 @@ class CDG_Core_Performance
     public function limit_post_revisions($num, $post): int
     {
         $mode = $this->plugin->get_setting('post_revisions_mode');
-        
+
         switch ($mode) {
             case 'disabled':
                 return 0;
@@ -118,7 +118,7 @@ class CDG_Core_Performance
                 return (int) $this->plugin->get_setting('post_revisions_limit');
             case 'unlimited':
             default:
-                return -1; // WordPress uses -1 for unlimited
+                return -1;
         }
     }
 
@@ -129,12 +129,10 @@ class CDG_Core_Performance
      */
     public function optimize_gutenberg_assets(): void
     {
-        // Don't optimize in admin
         if (is_admin()) {
             return;
         }
-        
-        // Check if page uses blocks
+
         if (!$this->page_uses_blocks()) {
             wp_dequeue_style('wp-block-library');
             wp_dequeue_style('wp-block-library-theme');
@@ -154,12 +152,12 @@ class CDG_Core_Performance
         if (!is_singular()) {
             return false;
         }
-        
+
         $post = get_post();
         if (!$post) {
             return false;
         }
-        
+
         return has_blocks($post);
     }
 
@@ -174,12 +172,9 @@ class CDG_Core_Performance
         if (is_admin() || !$query->is_main_query()) {
             return;
         }
-        
+
         if ($query->is_search()) {
-            // Limit results per page
             $query->set('posts_per_page', 20);
-            
-            // Note: We do NOT set no_found_rows here as it breaks pagination
         }
     }
 
@@ -194,13 +189,12 @@ class CDG_Core_Performance
         if (is_admin() || !$query->is_main_query()) {
             return;
         }
-        
+
         if ($query->is_archive() || $query->is_home()) {
-            // Skip meta cache if not needed
             $query->set('update_post_meta_cache', false);
             $query->set('update_post_term_cache', false);
         }
-        
+
         if ($query->is_category() || $query->is_tag()) {
             $query->set('posts_per_page', 10);
         }
@@ -217,33 +211,34 @@ class CDG_Core_Performance
     public function add_lazy_loading($attr, $attachment, $size): array
     {
         if (!is_array($attr)) {
-            return is_array($attr) ? $attr : [];
+            return [];
         }
-        
+
         // Skip in admin
         if (is_admin()) {
             return $attr;
         }
-        
+
         // Skip if already has loading attribute
         if (isset($attr['loading'])) {
             return $attr;
         }
-        
+
         // Add native lazy loading
         $attr['loading'] = 'lazy';
-        
+
         // Add aspect ratio for CLS
         if (!empty($attr['width']) && !empty($attr['height'])) {
             $width = (int) $attr['width'];
             $height = (int) $attr['height'];
-            
+
             if ($width > 0 && $height > 0) {
-                $style = isset($attr['style']) ? $attr['style'] : '';
-                $attr['style'] = $style . sprintf(' aspect-ratio: %d/%d;', $width, $height);
+                $aspect_ratio = sprintf('aspect-ratio: %d/%d;', $width, $height);
+                $existing_style = isset($attr['style']) ? rtrim($attr['style'], '; ') . '; ' : '';
+                $attr['style'] = $existing_style . $aspect_ratio;
             }
         }
-        
+
         return $attr;
     }
 
@@ -258,27 +253,31 @@ class CDG_Core_Performance
         if (!is_array($sizes)) {
             return [];
         }
-        
+
         $disabled = $this->plugin->get_setting('disabled_image_sizes');
-        
+
         if (!is_array($disabled)) {
             $disabled = [];
         }
-        
+
         // Always remove medium_large if setting is enabled
         if ($this->plugin->get_setting('remove_medium_large')) {
             $disabled[] = 'medium_large';
         }
-        
+
         foreach ($disabled as $size) {
             unset($sizes[$size]);
         }
-        
+
         return $sizes;
     }
 
     /**
      * Remove s.w.org DNS prefetch
+     *
+     * This is the single handler for s.w.org DNS prefetch removal.
+     * The emoji disable function in CDG_Core_Cleanup defers to this
+     * method to avoid duplicate filters.
      *
      * @param mixed $hints Resource hints
      * @param mixed $relation_type Relation type
@@ -289,7 +288,7 @@ class CDG_Core_Performance
         if (!is_array($hints)) {
             return [];
         }
-        
+
         if ('dns-prefetch' === $relation_type) {
             $hints = array_filter($hints, function ($hint) {
                 if (is_array($hint)) {
@@ -300,13 +299,13 @@ class CDG_Core_Performance
                 return strpos($href, 's.w.org') === false;
             });
         }
-        
+
         return array_values($hints);
     }
 
     /**
      * Get available image sizes for admin
-     * 
+     *
      * Static method that can be called without hooks being set up
      *
      * @return array
@@ -321,7 +320,7 @@ class CDG_Core_Performance
             '1536x1536',
             '2048x2048',
         ];
-        
+
         $divi_sizes = [
             'et-pb-portfolio-image',
             'et-pb-portfolio-module-image',
@@ -330,9 +329,9 @@ class CDG_Core_Performance
             'et-pb-post-main-image-fullwidth',
             'et-pb-post-main-image-fullwidth-large',
         ];
-        
+
         $sizes = [];
-        
+
         // WordPress defaults
         foreach ($wp_default_sizes as $size) {
             $sizes[$size] = [
@@ -342,10 +341,10 @@ class CDG_Core_Performance
                 'height' => (int) get_option("{$size}_size_h", 0),
             ];
         }
-        
+
         // Get registered sizes
         $registered = wp_get_registered_image_subsizes();
-        
+
         foreach ($registered as $name => $data) {
             if (!isset($sizes[$name])) {
                 $type = in_array($name, $divi_sizes, true) ? 'divi' : 'plugin';
@@ -357,7 +356,7 @@ class CDG_Core_Performance
                 ];
             }
         }
-        
+
         return $sizes;
     }
 

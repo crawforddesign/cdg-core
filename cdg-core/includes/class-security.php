@@ -3,6 +3,8 @@
  * Security Class
  *
  * Handles security hardening that complements Wordfence.
+ * Note: X-Frame-Options, HSTS, X-XSS-Protection, and X-Content-Type-Options
+ * are handled by SpinupWP at the Nginx level.
  *
  * @package CDG_Core
  * @since 1.0.0
@@ -51,11 +53,6 @@ class CDG_Core_Security
         // Remove X-Powered-By header
         if ($this->plugin->get_setting('remove_powered_by')) {
             add_filter('wp_headers', [$this, 'remove_powered_by_header']);
-        }
-        
-        // Add X-Frame-Options
-        if ($this->plugin->get_setting('add_frame_options')) {
-            add_action('send_headers', [$this, 'add_frame_options_header']);
         }
         
         // Disable code editor for non-admins
@@ -135,24 +132,6 @@ class CDG_Core_Security
     }
 
     /**
-     * Add X-Frame-Options header
-     *
-     * @return void
-     */
-    public function add_frame_options_header(): void
-    {
-        // Don't add if Divi builder is active (it uses iframes)
-        if ($this->is_divi_builder_active()) {
-            return;
-        }
-        
-        // Check if header already sent
-        if (!headers_sent()) {
-            header('X-Frame-Options: SAMEORIGIN');
-        }
-    }
-
-    /**
      * Disable code editor for non-admins
      *
      * @param mixed $settings Editor settings
@@ -170,27 +149,5 @@ class CDG_Core_Security
         }
         
         return $settings;
-    }
-
-    /**
-     * Check if Divi builder is active
-     *
-     * @return bool
-     */
-    private function is_divi_builder_active(): bool
-    {
-        if (function_exists('et_builder_is_frontend_editor') && et_builder_is_frontend_editor()) {
-            return true;
-        }
-        
-        if (function_exists('et_core_is_fb_enabled') && et_core_is_fb_enabled()) {
-            return true;
-        }
-        
-        if (isset($_GET['et_fb'])) {
-            return sanitize_text_field(wp_unslash($_GET['et_fb'])) === '1';
-        }
-        
-        return false;
     }
 }

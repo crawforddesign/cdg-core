@@ -8,16 +8,6 @@
   $(document).ready(function () {
     // Toggle sub-options visibility based on parent checkbox
 
-    // Post Rename toggle
-    $('input[name="enable_post_rename"]')
-      .on("change", function () {
-        $(this)
-          .closest("td")
-          .find('.cdg-sub-options, div[style*="margin"]')
-          .toggle(this.checked);
-      })
-      .trigger("change");
-
     // Documentation toggle
     $('input[name="enable_documentation"]')
       .on("change", function () {
@@ -30,16 +20,6 @@
 
     // CPT Widgets toggle
     $('input[name="enable_cpt_widgets"]')
-      .on("change", function () {
-        $(this)
-          .closest("td")
-          .find('.cdg-sub-options, div[style*="margin"]')
-          .toggle(this.checked);
-      })
-      .trigger("change");
-
-    // Project Rename toggle
-    $('input[name="enable_project_rename"]')
       .on("change", function () {
         $(this)
           .closest("td")
@@ -69,20 +49,26 @@
       })
       .trigger("change");
 
-    // Hide Projects disables Project Rename options (visual feedback only)
-    $('input[name="hide_divi_projects"]')
+    // Toggle Font admin-only option visibility
+    $('input[name="enable_font_uploads"]')
       .on("change", function () {
-        var projectRenameCheckbox = $('input[name="enable_project_rename"]');
-        var projectRenameSection = projectRenameCheckbox.closest("td").find('div[style*="margin"]');
-
+        var adminOnlyRow = $('input[name="font_admin_only"]').closest("tr");
         if (this.checked) {
-          // Visually disable the rename options when hiding
-          projectRenameCheckbox.prop("disabled", true);
-          projectRenameSection.css("opacity", "0.5");
+          adminOnlyRow.show();
         } else {
-          // Re-enable when not hiding
-          projectRenameCheckbox.prop("disabled", false);
-          projectRenameSection.css("opacity", "1");
+          adminOnlyRow.hide();
+        }
+      })
+      .trigger("change");
+
+    // Toggle Lottie admin-only option visibility
+    $('input[name="enable_lottie_uploads"]')
+      .on("change", function () {
+        var adminOnlyRow = $('input[name="lottie_admin_only"]').closest("tr");
+        if (this.checked) {
+          adminOnlyRow.show();
+        } else {
+          adminOnlyRow.hide();
         }
       })
       .trigger("change");
