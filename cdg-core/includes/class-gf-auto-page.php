@@ -175,6 +175,8 @@ class CDG_Core_GF_Auto_Page
         }
 
         update_post_meta($page_id, '_wp_page_template', self::TEMPLATE_FILE);
+        update_post_meta($page_id, '_et_pb_use_builder', 'on');
+        update_post_meta($page_id, '_et_pb_built_for_post_type', 'page');
 
         return $page_id;
     }
