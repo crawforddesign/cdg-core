@@ -2,10 +2,13 @@
 /**
  * Gravity Forms Auto Page Generator
  *
- * When a new form is saved with "Auto-Generate Page" checked, creates a draft
- * WordPress page containing a Divi 5 block layout with the Divi Essentials
- * Gravity Forms Styler module pre-configured for the form and styled via the
- * default module preset.
+ * Registers the `cdg_form` custom post type and, when a new form is saved
+ * with "Auto-Generate Page" checked, creates a draft cdg_form post containing
+ * a Divi 5 block layout with the Divi Essentials Gravity Forms Styler module
+ * pre-configured for the form and styled via the default module preset.
+ *
+ * Theme Builder targeting: Divi 5 → Theme Builder → target "All CDG Forms"
+ * (the cdg_form post type).
  *
  * @package CDG_Core
  * @since 1.5.0
@@ -15,7 +18,7 @@ declare(strict_types=1);
 
 class CDG_Core_GF_Auto_Page
 {
-    private const TEMPLATE_FILE = 'page-template-blank.php';
+    private const POST_TYPE     = 'cdg_form';
     private const OPTION_PREFIX = 'cdg_form_page_map_';
     private const PRESET_ID     = 'a2d02oayef';
 
@@ -40,18 +43,43 @@ class CDG_Core_GF_Auto_Page
      */
     private function setup_hooks(): void
     {
+        add_action('init', [$this, 'register_post_type']);
+
         if (!class_exists('GFForms')) {
             return;
         }
 
-        // Form Settings UI.
         add_filter('gform_form_settings', [$this, 'add_form_settings_field'], 10, 2);
-
-        // Persist the checkbox value onto the form array before GF saves it.
         add_filter('gform_pre_form_settings_save', [$this, 'save_form_setting']);
-
-        // After a form is saved, maybe create the page.
         add_action('gform_after_save_form', [$this, 'maybe_create_page'], 10, 2);
+    }
+
+    /**
+     * Register the cdg_form custom post type.
+     *
+     * @return void
+     */
+    public function register_post_type(): void
+    {
+        register_post_type(self::POST_TYPE, [
+            'labels' => [
+                'name'               => __('Forms', 'cdg-core'),
+                'singular_name'      => __('Form', 'cdg-core'),
+                'add_new_item'       => __('Add New Form Page', 'cdg-core'),
+                'edit_item'          => __('Edit Form Page', 'cdg-core'),
+                'view_item'          => __('View Form Page', 'cdg-core'),
+                'search_items'       => __('Search Form Pages', 'cdg-core'),
+                'not_found'          => __('No form pages found.', 'cdg-core'),
+                'not_found_in_trash' => __('No form pages found in trash.', 'cdg-core'),
+            ],
+            'public'        => true,
+            'has_archive'   => false,
+            'show_in_rest'  => true,
+            'show_in_menu'  => true,
+            'menu_icon'     => 'dashicons-feedback',
+            'supports'      => ['title', 'editor', 'custom-fields'],
+            'rewrite'       => ['slug' => 'forms'],
+        ]);
     }
 
     /**
@@ -92,7 +120,7 @@ class CDG_Core_GF_Auto_Page
                     <input type="checkbox" name="cdg_auto_generate_page" id="cdg_auto_generate_page" value="1"
                         <?php checked($checked); ?> />
                     <label for="cdg_auto_generate_page">
-                        <?php esc_html_e('Create a draft page with this form on first save', 'cdg-core'); ?>
+                        <?php esc_html_e('Create a draft form page on first save', 'cdg-core'); ?>
                     </label>
                 <?php endif; ?>
             </td>
@@ -122,7 +150,7 @@ class CDG_Core_GF_Auto_Page
      * Create the auto-page when a form is saved with the option enabled.
      *
      * Fires on both new and existing forms — the duplicate guard (option key)
-     * prevents re-creation if a page has already been generated.
+     * prevents re-creation if a post has already been generated.
      *
      * @param array $form   Saved form array.
      * @param bool  $is_new Unused — creation is gated by the option key instead.
@@ -140,7 +168,6 @@ class CDG_Core_GF_Auto_Page
             return;
         }
 
-        // Duplicate guard.
         if (get_option(self::OPTION_PREFIX . $form_id)) {
             return;
         }
@@ -153,32 +180,31 @@ class CDG_Core_GF_Auto_Page
     }
 
     /**
-     * Create the draft page for the given form.
+     * Create the draft cdg_form post for the given form.
      *
      * @param int    $form_id
      * @param string $form_title
-     * @return int Page ID on success, 0 on failure.
+     * @return int Post ID on success, 0 on failure.
      */
     private function create_form_page(int $form_id, string $form_title): int
     {
-        $page_args = [
+        $post_args = [
             'post_title'   => $form_title ?: sprintf('Form %d', $form_id),
             'post_content' => $this->get_page_content($form_id),
             'post_status'  => 'draft',
-            'post_type'    => 'page',
+            'post_type'    => self::POST_TYPE,
         ];
 
-        $page_id = wp_insert_post($page_args, true);
+        $post_id = wp_insert_post($post_args, true);
 
-        if (is_wp_error($page_id)) {
+        if (is_wp_error($post_id)) {
             return 0;
         }
 
-        update_post_meta($page_id, '_wp_page_template', self::TEMPLATE_FILE);
-        update_post_meta($page_id, '_et_pb_use_builder', 'on');
-        update_post_meta($page_id, '_et_pb_built_for_post_type', 'page');
+        update_post_meta($post_id, '_et_pb_use_builder', 'on');
+        update_post_meta($post_id, '_et_pb_built_for_post_type', self::POST_TYPE);
 
-        return $page_id;
+        return $post_id;
     }
 
     /**
