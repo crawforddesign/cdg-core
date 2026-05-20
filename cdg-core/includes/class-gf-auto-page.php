@@ -119,18 +119,17 @@ class CDG_Core_GF_Auto_Page
     }
 
     /**
-     * Create the auto-page when a new form is saved with the option enabled.
+     * Create the auto-page when a form is saved with the option enabled.
+     *
+     * Fires on both new and existing forms — the duplicate guard (option key)
+     * prevents re-creation if a page has already been generated.
      *
      * @param array $form   Saved form array.
-     * @param bool  $is_new True only on initial form creation.
+     * @param bool  $is_new Unused — creation is gated by the option key instead.
      * @return void
      */
     public function maybe_create_page(array $form, bool $is_new): void
     {
-        if (!$is_new) {
-            return;
-        }
-
         if (empty($form['cdg_auto_generate_page'])) {
             return;
         }
