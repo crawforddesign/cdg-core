@@ -115,7 +115,7 @@ class CDG_Core_GF_Auto_Page
         if ($form_id) {
             $post_id = absint(get_option(self::OPTION_PREFIX . $form_id, 0));
             if ($post_id && get_post($post_id)) {
-                $view_url = get_permalink($post_id) ?: '';
+                $view_url = $this->get_form_page_url($post_id);
             }
         }
 
@@ -164,7 +164,7 @@ class CDG_Core_GF_Auto_Page
         wp_send_json_success([
             'post_id'  => $post_id,
             'edit_url' => get_edit_post_link($post_id, 'raw'),
-            'view_url' => get_permalink($post_id),
+            'view_url' => $this->get_form_page_url($post_id),
         ]);
     }
 
@@ -184,6 +184,26 @@ class CDG_Core_GF_Auto_Page
         }
 
         delete_option($option_key);
+    }
+
+    /**
+     * Build the public-facing URL for a cdg_form post.
+     *
+     * get_permalink() returns a query-string URL for draft posts, so we
+     * construct the pretty URL directly from the post slug and rewrite base.
+     *
+     * @param int $post_id
+     * @return string
+     */
+    private function get_form_page_url(int $post_id): string
+    {
+        $post_name = get_post_field('post_name', $post_id);
+
+        if (!$post_name) {
+            return '';
+        }
+
+        return home_url(trailingslashit('forms/' . $post_name));
     }
 
     /**
