@@ -2,13 +2,15 @@
 /**
  * Gravity Forms Auto Page Generator
  *
- * Registers the `cdg_form` custom post type and, when a new form is saved
- * with "Auto-Generate Page" checked, creates a draft cdg_form post containing
- * a Divi 5 block layout with the Divi Essentials Gravity Forms Styler module
- * pre-configured for the form and styled via the default module preset.
+ * Registers the `cdg_form` custom post type and handles auto-generating a
+ * draft Divi 5 form page in two flows:
  *
- * Theme Builder targeting: Divi 5 → Theme Builder → target "All CDG Forms"
- * (the cdg_form post type).
+ * 1. New form modal (gf_new_form): JS injects a checkbox into the flyout,
+ *    stores the value in sessionStorage, then fires a WP AJAX call on the
+ *    form editor page to create the cdg_form post.
+ *
+ * 2. Form Settings page: checkbox persisted on the GF form array via
+ *    gform_pre_form_settings_save, page created via gform_after_save_form.
  *
  * @package CDG_Core
  * @since 1.5.0
@@ -21,6 +23,7 @@ class CDG_Core_GF_Auto_Page
     private const POST_TYPE     = 'cdg_form';
     private const OPTION_PREFIX = 'cdg_form_page_map_';
     private const PRESET_ID     = 'a2d02oayef';
+    private const AJAX_ACTION   = 'cdg_create_form_page';
 
     /**
      * @var CDG_Core
@@ -49,9 +52,17 @@ class CDG_Core_GF_Auto_Page
             return;
         }
 
+        // Form Settings flow.
         add_filter('gform_form_settings', [$this, 'add_form_settings_field'], 10, 2);
         add_filter('gform_pre_form_settings_save', [$this, 'save_form_setting']);
         add_action('gform_after_save_form', [$this, 'maybe_create_page'], 10, 2);
+
+        // New form modal flow.
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_scripts']);
+        add_action('wp_ajax_' . self::AJAX_ACTION, [$this, 'handle_create_page_ajax']);
+
+        // Cleanup when a form is deleted.
+        add_action('gform_after_delete_form', [$this, 'handle_form_deleted']);
     }
 
     /**
@@ -72,14 +83,100 @@ class CDG_Core_GF_Auto_Page
                 'not_found'          => __('No form pages found.', 'cdg-core'),
                 'not_found_in_trash' => __('No form pages found in trash.', 'cdg-core'),
             ],
-            'public'        => true,
-            'has_archive'   => false,
-            'show_in_rest'  => true,
-            'show_in_menu'  => true,
-            'menu_icon'     => 'dashicons-feedback',
-            'supports'      => ['title', 'editor', 'custom-fields'],
-            'rewrite'       => ['slug' => 'forms'],
+            'public'            => true,
+            'has_archive'       => false,
+            'show_in_rest'      => true,
+            'show_in_menu'      => false,
+            'show_in_admin_bar' => false,
+            'supports'     => ['title', 'editor', 'custom-fields'],
+            'rewrite'      => ['slug' => 'forms'],
         ]);
+    }
+
+    /**
+     * Enqueue admin JS on GF pages only.
+     *
+     * @return void
+     */
+    public function enqueue_admin_scripts(): void
+    {
+        $page = sanitize_text_field($_GET['page'] ?? '');
+
+        if (strpos($page, 'gf_') !== 0) {
+            return;
+        }
+
+        wp_enqueue_script(
+            'cdg-gf-auto-page',
+            CDG_CORE_URL . 'admin/js/gf-auto-page.js',
+            ['jquery'],
+            CDG_CORE_VERSION,
+            true
+        );
+
+        wp_localize_script('cdg-gf-auto-page', 'cdgAutoPage', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce'   => wp_create_nonce(self::AJAX_ACTION),
+        ]);
+    }
+
+    /**
+     * AJAX handler: create the form page from the new form modal flow.
+     *
+     * @return void
+     */
+    public function handle_create_page_ajax(): void
+    {
+        check_ajax_referer(self::AJAX_ACTION, 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Unauthorized'], 403);
+        }
+
+        $form_id = absint($_POST['form_id'] ?? 0);
+
+        if (!$form_id) {
+            wp_send_json_error(['message' => 'Invalid form ID']);
+        }
+
+        if (get_option(self::OPTION_PREFIX . $form_id)) {
+            wp_send_json_error(['message' => 'Page already exists for this form']);
+        }
+
+        $form       = class_exists('GFAPI') ? GFAPI::get_form($form_id) : [];
+        $form_title = sanitize_text_field($form['title'] ?? '');
+
+        $post_id = $this->create_form_page($form_id, $form_title);
+
+        if (!$post_id) {
+            wp_send_json_error(['message' => 'Failed to create form page']);
+        }
+
+        update_option(self::OPTION_PREFIX . $form_id, $post_id, false);
+
+        wp_send_json_success([
+            'post_id'  => $post_id,
+            'edit_url' => get_edit_post_link($post_id, 'raw'),
+            'view_url' => get_permalink($post_id),
+        ]);
+    }
+
+    /**
+     * Trash the associated cdg_form post when a GF form is deleted.
+     *
+     * @param int $form_id
+     * @return void
+     */
+    public function handle_form_deleted(int $form_id): void
+    {
+        $option_key = self::OPTION_PREFIX . $form_id;
+        $post_id    = absint(get_option($option_key, 0));
+
+        if ($post_id && get_post($post_id)) {
+            wp_trash_post($post_id);
+        }
+
+        delete_option($option_key);
     }
 
     /**
@@ -147,10 +244,10 @@ class CDG_Core_GF_Auto_Page
     }
 
     /**
-     * Create the auto-page when a form is saved with the option enabled.
+     * Create the auto-page when a form is saved via the Form Settings flow.
      *
-     * Fires on both new and existing forms — the duplicate guard (option key)
-     * prevents re-creation if a post has already been generated.
+     * The duplicate guard prevents re-creation if a post already exists.
+     * New forms created via the modal use handle_create_page_ajax() instead.
      *
      * @param array $form   Saved form array.
      * @param bool  $is_new Unused — creation is gated by the option key instead.
@@ -209,10 +306,6 @@ class CDG_Core_GF_Auto_Page
 
     /**
      * Build the Divi 5 block markup for the GF Styler module.
-     *
-     * Produces a Section > Row > Column layout containing a single
-     * dnxte/gravity-forms module referencing the given form ID and
-     * the site's default GF Styler module preset.
      *
      * @param int $form_id
      * @return string Divi 5 block markup for post_content.
