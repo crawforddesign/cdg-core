@@ -5,12 +5,12 @@
  * Registers the `cdg_form` custom post type and handles auto-generating a
  * draft Divi 5 form page in two flows:
  *
- * 1. New form modal (gf_new_form): JS injects a checkbox into the flyout,
- *    stores the value in sessionStorage, then fires a WP AJAX call on the
- *    form editor page to create the cdg_form post.
+ * 1. New form modal (gf_new_form): JS injects a checkbox + slug field into
+ *    the flyout panel, stores values in sessionStorage, then fires a WP AJAX
+ *    call on the form editor page to create the cdg_form post.
  *
- * 2. Form Settings page: checkbox persisted on the GF form array via
- *    gform_pre_form_settings_save, page created via gform_after_save_form.
+ * 2. Form lifecycle: gform_after_delete_form trashes the associated post and
+ *    cleans up the options key.
  *
  * @package CDG_Core
  * @since 1.5.0
@@ -52,16 +52,8 @@ class CDG_Core_GF_Auto_Page
             return;
         }
 
-        // Form Settings flow.
-        add_filter('gform_form_settings', [$this, 'add_form_settings_field'], 10, 2);
-        add_filter('gform_pre_form_settings_save', [$this, 'save_form_setting']);
-        add_action('gform_after_save_form', [$this, 'maybe_create_page'], 10, 2);
-
-        // New form modal flow.
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_scripts']);
         add_action('wp_ajax_' . self::AJAX_ACTION, [$this, 'handle_create_page_ajax']);
-
-        // Cleanup when a form is deleted.
         add_action('gform_after_delete_form', [$this, 'handle_form_deleted']);
     }
 
@@ -88,13 +80,16 @@ class CDG_Core_GF_Auto_Page
             'show_in_rest'      => true,
             'show_in_menu'      => false,
             'show_in_admin_bar' => false,
-            'supports'     => ['title', 'editor', 'custom-fields'],
-            'rewrite'      => ['slug' => 'forms'],
+            'supports'          => ['title', 'editor', 'custom-fields'],
+            'rewrite'           => ['slug' => 'forms'],
         ]);
     }
 
     /**
      * Enqueue admin JS on GF pages only.
+     *
+     * Passes the existing form page view URL (if any) so the "View Form Page"
+     * button can be injected immediately on the form editor page.
      *
      * @return void
      */
@@ -114,9 +109,20 @@ class CDG_Core_GF_Auto_Page
             true
         );
 
+        $view_url = '';
+        $form_id  = absint($_GET['id'] ?? 0);
+
+        if ($form_id) {
+            $post_id = absint(get_option(self::OPTION_PREFIX . $form_id, 0));
+            if ($post_id && get_post($post_id)) {
+                $view_url = get_permalink($post_id) ?: '';
+            }
+        }
+
         wp_localize_script('cdg-gf-auto-page', 'cdgAutoPage', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce'   => wp_create_nonce(self::AJAX_ACTION),
+            'viewUrl' => $view_url,
         ]);
     }
 
@@ -143,10 +149,11 @@ class CDG_Core_GF_Auto_Page
             wp_send_json_error(['message' => 'Page already exists for this form']);
         }
 
-        $form       = class_exists('GFAPI') ? GFAPI::get_form($form_id) : [];
+        $form      = class_exists('GFAPI') ? GFAPI::get_form($form_id) : [];
         $form_title = sanitize_text_field($form['title'] ?? '');
+        $post_slug  = sanitize_title($_POST['post_slug'] ?? $form_title);
 
-        $post_id = $this->create_form_page($form_id, $form_title);
+        $post_id = $this->create_form_page($form_id, $form_title, $post_slug);
 
         if (!$post_id) {
             wp_send_json_error(['message' => 'Failed to create form page']);
@@ -180,113 +187,18 @@ class CDG_Core_GF_Auto_Page
     }
 
     /**
-     * Inject the "Auto-Generate Page" field into GF Form Settings.
-     *
-     * @param array $settings Existing settings sections.
-     * @param array $form     Current form array.
-     * @return array
-     */
-    public function add_form_settings_field(array $settings, array $form): array
-    {
-        $form_id     = absint($form['id'] ?? 0);
-        $checked     = !empty($form['cdg_auto_generate_page']);
-        $page_id     = $form_id ? absint(get_option(self::OPTION_PREFIX . $form_id, 0)) : 0;
-        $page_exists = $page_id && get_post($page_id);
-
-        ob_start();
-        ?>
-        <tr>
-            <th><?php esc_html_e('Auto-Generate Page', 'cdg-core'); ?></th>
-            <td>
-                <?php if ($page_exists) : ?>
-                    <input type="checkbox" name="cdg_auto_generate_page" id="cdg_auto_generate_page" value="1"
-                        <?php checked($checked); ?> disabled />
-                    <label for="cdg_auto_generate_page">
-                        <?php esc_html_e('Page already generated', 'cdg-core'); ?>
-                    </label>
-                    <p class="description" style="margin-top:6px;">
-                        <a href="<?php echo esc_url(get_edit_post_link($page_id)); ?>" target="_blank">
-                            <?php esc_html_e('Edit Page', 'cdg-core'); ?>
-                        </a>
-                        &nbsp;&bull;&nbsp;
-                        <a href="<?php echo esc_url(get_permalink($page_id)); ?>" target="_blank">
-                            <?php esc_html_e('View Page', 'cdg-core'); ?>
-                        </a>
-                    </p>
-                <?php else : ?>
-                    <input type="checkbox" name="cdg_auto_generate_page" id="cdg_auto_generate_page" value="1"
-                        <?php checked($checked); ?> />
-                    <label for="cdg_auto_generate_page">
-                        <?php esc_html_e('Create a draft form page on first save', 'cdg-core'); ?>
-                    </label>
-                <?php endif; ?>
-            </td>
-        </tr>
-        <?php
-        $html = ob_get_clean();
-
-        $settings['CDG Core']['cdg_auto_generate_page'] = $html;
-
-        return $settings;
-    }
-
-    /**
-     * Persist the checkbox value onto the form array (runs before GF saves it).
-     *
-     * @param array $form
-     * @return array
-     */
-    public function save_form_setting(array $form): array
-    {
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- GF handles nonce for this request.
-        $form['cdg_auto_generate_page'] = isset($_POST['cdg_auto_generate_page']) ? 1 : 0;
-        return $form;
-    }
-
-    /**
-     * Create the auto-page when a form is saved via the Form Settings flow.
-     *
-     * The duplicate guard prevents re-creation if a post already exists.
-     * New forms created via the modal use handle_create_page_ajax() instead.
-     *
-     * @param array $form   Saved form array.
-     * @param bool  $is_new Unused — creation is gated by the option key instead.
-     * @return void
-     */
-    public function maybe_create_page(array $form, bool $is_new): void
-    {
-        if (empty($form['cdg_auto_generate_page'])) {
-            return;
-        }
-
-        $form_id = absint($form['id'] ?? 0);
-
-        if (!$form_id) {
-            return;
-        }
-
-        if (get_option(self::OPTION_PREFIX . $form_id)) {
-            return;
-        }
-
-        $page_id = $this->create_form_page($form_id, sanitize_text_field($form['title'] ?? ''));
-
-        if ($page_id) {
-            update_option(self::OPTION_PREFIX . $form_id, $page_id, false);
-        }
-    }
-
-    /**
      * Create the draft cdg_form post for the given form.
      *
      * @param int    $form_id
      * @param string $form_title
+     * @param string $post_slug
      * @return int Post ID on success, 0 on failure.
      */
-    private function create_form_page(int $form_id, string $form_title): int
+    private function create_form_page(int $form_id, string $form_title, string $post_slug = ''): int
     {
         $post_args = [
             'post_title'   => $form_title ?: sprintf('Form %d', $form_id),
+            'post_name'    => $post_slug ?: sanitize_title($form_title ?: sprintf('form-%d', $form_id)),
             'post_content' => $this->get_page_content($form_id),
             'post_status'  => 'draft',
             'post_type'    => self::POST_TYPE,
