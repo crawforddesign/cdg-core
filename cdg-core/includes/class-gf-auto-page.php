@@ -3,9 +3,9 @@
  * Gravity Forms Auto Page Generator
  *
  * When a new form is saved with "Auto-Generate Page" checked, creates a draft
- * WordPress page containing the [gravityforms] shortcode, tags it with
- * `auto-form-page` (for Divi Theme Builder targeting), and applies the Divi
- * blank canvas template.
+ * WordPress page containing a Divi 5 block layout with the Divi Essentials
+ * Gravity Forms Styler module pre-configured for the form and styled via the
+ * default module preset.
  *
  * @package CDG_Core
  * @since 1.5.0
@@ -15,9 +15,9 @@ declare(strict_types=1);
 
 class CDG_Core_GF_Auto_Page
 {
-    private const TAG_SLUG      = 'auto-form-page';
     private const TEMPLATE_FILE = 'page-template-blank.php';
     private const OPTION_PREFIX = 'cdg_form_page_map_';
+    private const PRESET_ID     = 'a2d02oayef';
 
     /**
      * @var CDG_Core
@@ -40,9 +40,6 @@ class CDG_Core_GF_Auto_Page
      */
     private function setup_hooks(): void
     {
-        // Ensure post_tag is available on pages.
-        add_action('init', [$this, 'register_tag_taxonomy_for_pages']);
-
         if (!class_exists('GFForms')) {
             return;
         }
@@ -58,16 +55,6 @@ class CDG_Core_GF_Auto_Page
     }
 
     /**
-     * Allow post_tag taxonomy on pages (required for Divi Theme Builder targeting).
-     *
-     * @return void
-     */
-    public function register_tag_taxonomy_for_pages(): void
-    {
-        register_taxonomy_for_object_type('post_tag', 'page');
-    }
-
-    /**
      * Inject the "Auto-Generate Page" field into GF Form Settings.
      *
      * @param array $settings Existing settings sections.
@@ -76,9 +63,9 @@ class CDG_Core_GF_Auto_Page
      */
     public function add_form_settings_field(array $settings, array $form): array
     {
-        $form_id   = absint($form['id'] ?? 0);
-        $checked   = !empty($form['cdg_auto_generate_page']);
-        $page_id   = $form_id ? absint(get_option(self::OPTION_PREFIX . $form_id, 0)) : 0;
+        $form_id     = absint($form['id'] ?? 0);
+        $checked     = !empty($form['cdg_auto_generate_page']);
+        $page_id     = $form_id ? absint(get_option(self::OPTION_PREFIX . $form_id, 0)) : 0;
         $page_exists = $page_id && get_post($page_id);
 
         ob_start();
@@ -105,7 +92,7 @@ class CDG_Core_GF_Auto_Page
                     <input type="checkbox" name="cdg_auto_generate_page" id="cdg_auto_generate_page" value="1"
                         <?php checked($checked); ?> />
                     <label for="cdg_auto_generate_page">
-                        <?php esc_html_e('Create a draft page with this form\'s shortcode on first save', 'cdg-core'); ?>
+                        <?php esc_html_e('Create a draft page with this form on first save', 'cdg-core'); ?>
                     </label>
                 <?php endif; ?>
             </td>
@@ -134,8 +121,8 @@ class CDG_Core_GF_Auto_Page
     /**
      * Create the auto-page when a new form is saved with the option enabled.
      *
-     * @param array $form     Saved form array.
-     * @param bool  $is_new   True only on initial form creation.
+     * @param array $form   Saved form array.
+     * @param bool  $is_new True only on initial form creation.
      * @return void
      */
     public function maybe_create_page(array $form, bool $is_new): void
@@ -171,16 +158,15 @@ class CDG_Core_GF_Auto_Page
      *
      * @param int    $form_id
      * @param string $form_title
-     * @return int   Page ID on success, 0 on failure.
+     * @return int Page ID on success, 0 on failure.
      */
     private function create_form_page(int $form_id, string $form_title): int
     {
         $page_args = [
             'post_title'   => $form_title ?: sprintf('Form %d', $form_id),
-            'post_content' => sprintf('[gravityforms id="%d"]', $form_id),
+            'post_content' => $this->get_page_content($form_id),
             'post_status'  => 'draft',
             'post_type'    => 'page',
-            'tags_input'   => [self::TAG_SLUG],
         ];
 
         $page_id = wp_insert_post($page_args, true);
@@ -189,9 +175,57 @@ class CDG_Core_GF_Auto_Page
             return 0;
         }
 
-        // Apply Divi blank canvas template.
         update_post_meta($page_id, '_wp_page_template', self::TEMPLATE_FILE);
 
         return $page_id;
+    }
+
+    /**
+     * Build the Divi 5 block markup for the GF Styler module.
+     *
+     * Produces a Section > Row > Column layout containing a single
+     * dnxte/gravity-forms module referencing the given form ID and
+     * the site's default GF Styler module preset.
+     *
+     * @param int $form_id
+     * @return string Divi 5 block markup for post_content.
+     */
+    private function get_page_content(int $form_id): string
+    {
+        $id = (string) $form_id;
+
+        $module_attrs = wp_json_encode(
+            [
+                'formId'         => [
+                    'innerContent' => [
+                        'widescreen' => ['value' => ['id' => $id]],
+                        'desktop'    => ['value' => ['id' => $id]],
+                    ],
+                ],
+                'builderVersion' => '5.1.0',
+                'modulePreset'   => [self::PRESET_ID],
+            ],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
+
+        $section_attrs = '{"builderVersion":"5.1.0"}';
+
+        $row_attrs = '{"module":{"advanced":{"flexColumnStructure":{"desktop":{"value":"equal-columns_1"}}},'
+            . '"decoration":{"layout":{"desktop":{"value":{"flexWrap":"nowrap"}}},'
+            . '"sizing":{"widescreen":{"value":{"maxWidth":"2560px"}}}}},'
+            . '"builderVersion":"5.1.0"}';
+
+        $col_attrs = '{"module":{"decoration":{"sizing":{"desktop":{"value":{"flexType":"24_24"}}}}},'
+            . '"builderVersion":"5.1.0"}';
+
+        return implode("\r\n", [
+            "<!-- wp:divi/placeholder --><!-- wp:divi/section {$section_attrs} -->",
+            "<!-- wp:divi/row {$row_attrs} -->",
+            "<!-- wp:divi/column {$col_attrs} -->",
+            "<!-- wp:dnxte/gravity-forms {$module_attrs} /-->",
+            '<!-- /wp:divi/column -->',
+            '<!-- /wp:divi/row -->',
+            '<!-- /wp:divi/section --><!-- /wp:divi/placeholder -->',
+        ]);
     }
 }
