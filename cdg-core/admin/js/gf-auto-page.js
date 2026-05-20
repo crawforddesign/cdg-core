@@ -36,15 +36,7 @@
     }
 
     // Try known GF save button selectors, fall back to text search.
-    var saveBtn =
-      document.querySelector("#gform-save-form-button") ||
-      document.querySelector('[data-js="save-form"]') ||
-      document.querySelector(".gform-toolbar__save-button") ||
-      Array.prototype.find.call(document.querySelectorAll("button"), function (
-        btn
-      ) {
-        return btn.textContent.trim() === "Save Form";
-      });
+    var saveBtn = document.querySelector('[data-js="ajax-save-form"]');
 
     if (!saveBtn) {
       return;
@@ -69,14 +61,7 @@
       return;
     }
 
-    var target =
-      document.querySelector("#gform-save-form-button") ||
-      document.querySelector('[data-js="save-form"]') ||
-      Array.prototype.find.call(document.querySelectorAll("button"), function (
-        btn
-      ) {
-        return btn.textContent.trim() === "Save Form";
-      });
+    var target = document.querySelector('[data-js="ajax-save-form"]');
 
     if (target) {
       injectViewButton(viewUrl);
