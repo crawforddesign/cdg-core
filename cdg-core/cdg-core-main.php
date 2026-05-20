@@ -286,6 +286,7 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
 
     if ($this->get_setting("enable_gf_fixes")) {
       new CDG_Core_Gravity_Forms($this);
+      new CDG_Core_GF_Auto_Page($this);
     }
 
     // SVG Support - initialize regardless of setting (class checks internally)
