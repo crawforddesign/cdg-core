@@ -220,7 +220,7 @@ class CDG_Core_GF_Auto_Page
             'post_title'   => $form_title ?: sprintf('Form %d', $form_id),
             'post_name'    => $post_slug ?: sanitize_title($form_title ?: sprintf('form-%d', $form_id)),
             'post_content' => $this->get_page_content($form_id),
-            'post_status'  => 'draft',
+            'post_status'  => 'publish',
             'post_type'    => self::POST_TYPE,
         ];
 
