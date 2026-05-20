@@ -39,7 +39,7 @@
       "</label>" +
       "</div>" +
       '<p style="margin-top:4px;font-size:11px;color:#6b7280;">' +
-      "Creates a draft Divi page for this form automatically based on the layout in the <a href="/wp-admin/admin.php?page=et_theme_builder"Divi Theme Builder</a>." +
+      "Creates a draft Divi page for this form automatically based on the layout in the <a href='/wp-admin/admin.php?page=et_theme_builder'>Divi Theme Builder</a>." +
       "</p>";
 
     bodyInner.appendChild(field);
