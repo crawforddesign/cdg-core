@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDG Core Settings — Wireframe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #fff;
+    --surface: #fff;
+    --muted: #f4f4f5;
+    --muted-fg: #71717a;
+    --border: #e4e4e7;
+    --fg: #09090b;
+    --fg-secondary: #3f3f46;
+    --primary: #18181b;
+    --primary-fg: #fafafa;
+    --accent: #f4f4f5;
+    --accent-fg: #18181b;
+    --ring: #a1a1aa;
+    --destructive: #ef4444;
+    --sidebar-w: 220px;
+    --radius: 6px;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    background: #f9f9fb;
+    color: var(--fg);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .shell {
+    display: flex;
+    flex-direction: column;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 60px;
+    gap: 24px;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .page-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .page-title h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--muted);
+    color: var(--muted-fg);
+    border: 1px solid var(--border);
+  }
+
+  .badge-blue {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+  }
+
+  .badge-orange {
+    background: #fff7ed;
+    color: #c2410c;
+    border-color: #fed7aa;
+  }
+
+  .body-layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: sticky;
+    top: 24px;
+  }
+
+  .sidebar-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-fg);
+    padding: 0 12px 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--fg-secondary);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    user-select: none;
+    border: none;
+    background: none;
+    text-align: left;
+    width: 100%;
+  }
+
+  .nav-item:hover { background: var(--muted); color: var(--fg); }
+
+  .nav-item.active {
+    background: var(--muted);
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  .nav-item .icon {
+    width: 16px;
+    height: 16px;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+
+  /* ── Content ── */
+  .content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .tab-panel { display: none; flex-direction: column; gap: 20px; }
+  .tab-panel.active { display: flex; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 18px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-desc {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--muted-fg);
+    line-height: 1.4;
+  }
+
+  .card-body { padding: 0; }
+
+  /* ── Setting Row ── */
+  .setting-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 16px 20px;
+    gap: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .setting-row:last-child { border-bottom: none; }
+
+  .setting-row.indented { padding-left: 40px; background: #fafafa; }
+
+  .setting-info { flex: 1; min-width: 0; }
+
+  .setting-label {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--fg);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .setting-hint {
+    font-size: 12.5px;
+    color: var(--muted-fg);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+
+  .setting-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* ── Toggle / Switch ── */
+  .switch {
+    width: 38px;
+    height: 22px;
+    background: var(--border);
+    border-radius: 100px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+    border: none;
+  }
+
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    transition: transform 0.15s;
+  }
+
+  .switch.on { background: var(--primary); }
+  .switch.on::after { transform: translateX(16px); }
+
+  /* ── Radio Group ── */
+  .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .radio-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    background: var(--surface);
+    transition: border-color 0.1s, background 0.1s;
+  }
+
+  .radio-option.selected {
+    border-color: var(--primary);
+    background: #fafafa;
+  }
+
+  .radio-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    flex-shrink: 0;
+    margin-top: 1px;
+    position: relative;
+    background: var(--surface);
+  }
+
+  .radio-option.selected .radio-dot {
+    border-color: var(--primary);
+    background: var(--primary);
+  }
+
+  .radio-option.selected .radio-dot::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 6px; height: 6px;
+    background: #fff;
+    border-radius: 50%;
+  }
+
+  .radio-text strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .radio-text span {
+    font-size: 12px;
+    color: var(--muted-fg);
+  }
+
+  /* ── Checkbox List ── */
+  .check-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 16px 20px;
+  }
+
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--fg-secondary);
+  }
+
+  .check-box {
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .check-box.checked {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+
+  .check-box.checked::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 4px;
+    width: 5px; height: 8px;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: rotate(40deg);
+  }
+
+  /* ── Input ── */
+  .input {
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 10px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--surface);
+    outline: none;
+    transition: border-color 0.1s, box-shadow 0.1s;
+  }
+
+  .input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(0,0,0,0.06); }
+  .input.sm { width: 80px; }
+  .input.lg { width: 100%; }
+  .input.mono { font-family: 'Courier New', monospace; font-size: 12px; }
+
+  textarea.input {
+    height: auto;
+    padding: 8px 10px;
+    resize: vertical;
+    line-height: 1.5;
+  }
+
+  /* ── Select ── */
+  .select {
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 28px 0 10px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center;
+    -webkit-appearance: none;
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* ── Color Swatch ── */
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: #F34F27;
+    flex-shrink: 0;
+  }
+
+  /* ── Inline Notice ── */
+  .notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    line-height: 1.4;
+    border: 1px solid;
+  }
+
+  .notice-info { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .notice-warn { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+  .notice-success { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+
+  /* ── Sub-section separator ── */
+  .sub-section {
+    padding: 14px 20px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-fg);
+    background: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.1s, opacity 0.1s;
+    border: none;
+  }
+
+  .btn-primary { background: var(--primary); color: var(--primary-fg); }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-outline { background: transparent; color: var(--fg); border: 1px solid var(--border); }
+  .btn-outline:hover { background: var(--muted); }
+
+  /* ── Save Bar ── */
+  .save-bar {
+    position: sticky;
+    bottom: 0;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 -24px -60px;
+    font-size: 13px;
+    color: var(--muted-fg);
+  }
+
+  /* ── Separator ── */
+  .sep { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+  /* ── Annotation bar (wireframe only) ── */
+  .wf-banner {
+    background: #18181b;
+    color: #a1a1aa;
+    text-align: center;
+    padding: 8px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .wf-banner strong { color: #fafafa; }
+
+  /* ── Disabled overlay (for conditional fields) ── */
+  .disabled-hint {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="wf-banner">
+  <strong>Wireframe</strong> — CDG Core Settings Page · Shadcn UI style · Click nav items to switch tabs
+</div>
+
+<div class="shell">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="page-title">
+      <h1>CDG Core Settings</h1>
+      <span class="badge">v1.4.0</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span style="font-size:12px;color:var(--muted-fg);">Settings saved successfully</span>
+      <button class="btn btn-primary">Save Changes</button>
+    </div>
+  </div>
+
+  <div class="body-layout">
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-label">Settings</div>
+      <button class="nav-item active" onclick="showTab('features',this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        Features
+      </button>
+      <button class="nav-item" onclick="showTab('defaults',this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M4.93 4.93a10 10 0 000 14.14"/></svg>
+        Defaults
+      </button>
+      <button class="nav-item" onclick="showTab('cleanup',this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        WP Cleanup
+      </button>
+      <button class="nav-item" onclick="showTab('security',this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Security
+      </button>
+      <button class="nav-item" onclick="showTab('performance',this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        Performance
+      </button>
+      <button class="nav-item" onclick="showTab('gravity',this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Gravity Forms
+      </button>
+      <button class="nav-item" onclick="showTab('admin',this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Admin
+      </button>
+    </nav>
+
+    <!-- Content -->
+    <main class="content">
+
+      <!-- ═══════════════════════════════════════
+           TAB: FEATURES
+      ════════════════════════════════════════ -->
+      <div id="tab-features" class="tab-panel active">
+
+        <!-- Documentation -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              Documentation System
+            </div>
+            <div class="card-desc">Internal documentation post type with categorized dashboard widgets.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Enable Documentation</div>
+                <div class="setting-hint">Registers the cdg_documentation post type and taxonomies.</div>
+              </div>
+              <div class="setting-control">
+                <div class="switch on"></div>
+              </div>
+            </div>
+            <div class="setting-row indented">
+              <div class="setting-info">
+                <div class="setting-label">Show Dashboard Widgets</div>
+                <div class="setting-hint">Display documentation articles on the WordPress dashboard.</div>
+              </div>
+              <div class="setting-control">
+                <div class="switch on"></div>
+              </div>
+            </div>
+            <div class="setting-row indented">
+              <div class="setting-info">
+                <div class="setting-label">Widget Style</div>
+              </div>
+              <div class="setting-control">
+                <div class="radio-group" style="min-width:280px;">
+                  <label class="radio-option selected">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Informative</strong><span>One widget per category</span></div>
+                  </label>
+                  <label class="radio-option">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Minimal</strong><span>Single consolidated widget</span></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="setting-row indented">
+              <div class="setting-info">
+                <div class="setting-label">Docs Per Widget</div>
+                <div class="setting-hint">Max articles shown per dashboard widget (1–20).</div>
+              </div>
+              <div class="setting-control">
+                <input class="input sm" type="number" value="5" min="1" max="20">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CPT Widgets -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              CPT Dashboard Widgets
+            </div>
+            <div class="card-desc">Quick-access dashboard widgets for custom post types.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Enable CPT Widgets</div>
+                <div class="setting-hint">Show custom post type widgets on the WordPress dashboard.</div>
+              </div>
+              <div class="setting-control">
+                <div class="switch on"></div>
+              </div>
+            </div>
+            <div class="setting-row indented">
+              <div class="setting-info">
+                <div class="setting-label">Widget Style</div>
+              </div>
+              <div class="setting-control">
+                <div class="radio-group" style="min-width:280px;">
+                  <label class="radio-option selected">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Informative</strong><span>Per post type with stats &amp; recent entries</span></div>
+                  </label>
+                  <label class="radio-option">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Minimal</strong><span>Single quick-add widget</span></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="setting-row indented">
+              <div class="setting-info">
+                <div class="setting-label">Post Types to Show</div>
+                <div class="setting-hint">Select which CPTs appear in dashboard widgets. Only registered CPTs are listed.</div>
+              </div>
+              <div class="setting-control" style="flex-direction:column;align-items:flex-start;gap:6px;min-width:200px;">
+                <label class="check-item"><div class="check-box checked"></div> Portfolio</label>
+                <label class="check-item"><div class="check-box checked"></div> Testimonials</label>
+                <label class="check-item"><div class="check-box"></div> Team Members</label>
+                <label class="check-item"><div class="check-box"></div> Services</label>
+                <div style="font-size:12px;color:var(--muted-fg);margin-top:2px;">Populated from registered post types</div>
+              </div>
+            </div>
+            <div class="setting-row indented">
+              <div class="setting-info">
+                <div class="setting-label">Show Recent Posts in Widgets</div>
+              </div>
+              <div class="setting-control">
+                <div class="switch on"></div>
+              </div>
+            </div>
+            <div class="setting-row indented">
+              <div class="setting-info">
+                <div class="setting-label">Recent Posts to Show</div>
+                <div class="setting-hint">Per widget (1–10).</div>
+              </div>
+              <div class="setting-control">
+                <input class="input sm" type="number" value="3" min="1" max="10">
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /features -->
+
+
+      <!-- ═══════════════════════════════════════
+           TAB: DEFAULTS
+      ════════════════════════════════════════ -->
+      <div id="tab-defaults" class="tab-panel">
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">WordPress Comments</div>
+            <div class="card-desc">Completely disable the WordPress commenting system site-wide.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Disable Comments</div>
+                <div class="setting-hint">Removes all comment functionality: hides the Comments menu, disables Discussion settings, and blocks comment-related admin pages.</div>
+              </div>
+              <div class="setting-control">
+                <div class="switch"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Divi Projects</div>
+            <div class="card-desc">Control Divi's built-in Projects post type.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Hide Divi Projects</div>
+                <div class="setting-hint">Unregisters the Divi Projects post type and its Project Categories / Tags taxonomies.</div>
+              </div>
+              <div class="setting-control">
+                <div class="switch"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /defaults -->
+
+
+      <!-- ═══════════════════════════════════════
+           TAB: CLEANUP
+      ════════════════════════════════════════ -->
+      <div id="tab-cleanup" class="tab-panel">
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">WordPress Head Cleanup</div>
+            <div class="card-desc">Remove unnecessary tags and scripts from the <code style="font-size:12px;background:var(--muted);padding:1px 5px;border-radius:3px;">&lt;head&gt;</code> for cleaner output and reduced fingerprinting.</div>
+          </div>
+          <div class="card-body">
+            <div class="check-grid">
+              <label class="check-item"><div class="check-box checked"></div> WordPress version</label>
+              <label class="check-item"><div class="check-box checked"></div> WLW Manifest</label>
+              <label class="check-item"><div class="check-box checked"></div> RSD link</label>
+              <label class="check-item"><div class="check-box checked"></div> Shortlink</label>
+              <label class="check-item"><div class="check-box checked"></div> Adjacent posts</label>
+              <label class="check-item"><div class="check-box checked"></div> oEmbed links</label>
+              <label class="check-item"><div class="check-box checked"></div> REST API link</label>
+              <label class="check-item"><div class="check-box checked"></div> WordPress emojis</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Dashboard Widgets</div>
+            <div class="card-desc">Hide WordPress core and plugin widgets from the admin dashboard.</div>
+          </div>
+          <div class="card-body">
+            <div class="sub-section">WordPress Core</div>
+            <div class="check-grid">
+              <label class="check-item"><div class="check-box checked"></div> Quick Draft</label>
+              <label class="check-item"><div class="check-box checked"></div> Events &amp; News</label>
+              <label class="check-item"><div class="check-box checked"></div> PHP Update Nag</label>
+              <label class="check-item"><div class="check-box checked"></div> Browser Nag</label>
+              <label class="check-item"><div class="check-box"></div> Site Health Status</label>
+              <label class="check-item"><div class="check-box"></div> Welcome Panel</label>
+              <label class="check-item"><div class="check-box"></div> Activity</label>
+              <label class="check-item"><div class="check-box"></div> At a Glance</label>
+            </div>
+            <div class="sub-section" style="margin-top:4px;">Plugin Widgets</div>
+            <div style="padding:14px 20px;font-size:13px;color:var(--muted-fg);font-style:italic;">
+              Detected from installed plugins. Visit the Dashboard once to populate this list.
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">WordPress Heartbeat</div>
+            <div class="card-desc">Control how often WordPress polls the server to keep sessions alive and enable autosave.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Admin Heartbeat</div>
+              </div>
+              <div class="setting-control">
+                <select class="select">
+                  <option>WordPress Default</option>
+                  <option selected>60 seconds (recommended)</option>
+                  <option>120 seconds</option>
+                  <option>Disabled</option>
+                </select>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Frontend Heartbeat</div>
+              </div>
+              <div class="setting-control">
+                <select class="select">
+                  <option>WordPress Default</option>
+                  <option>120 seconds</option>
+                  <option selected>Disabled (recommended)</option>
+                </select>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Exception: Divi Visual Builder</div>
+                <div class="setting-hint">Keep heartbeat active while the Divi builder is open, even if disabled above.</div>
+              </div>
+              <div class="setting-control">
+                <div class="switch on"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /cleanup -->
+
+
+      <!-- ═══════════════════════════════════════
+           TAB: SECURITY
+      ════════════════════════════════════════ -->
+      <div id="tab-security" class="tab-panel">
+
+        <div class="notice notice-info" style="border-radius:var(--radius);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <div>Security headers (X-Frame-Options, HSTS, X-XSS-Protection, X-Content-Type-Options) are handled by SpinupWP at the Nginx level. These settings complement Wordfence.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Security Hardening</div>
+            <div class="card-desc">Core WordPress security improvements.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Disable XML-RPC</div>
+                <div class="setting-hint">Common attack vector used for brute-force attacks.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Block Dangerous Uploads</div>
+                <div class="setting-hint">Prevents .exe, .php, .js and other executable files from being uploaded.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Remove X-Powered-By Header</div>
+                <div class="setting-hint">Hides PHP and server information from HTTP responses.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Disable Code Editor</div>
+                <div class="setting-hint">Disables the theme/plugin file editor for non-administrator users.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload Permissions -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Upload Permissions</div>
+            <div class="card-desc">Allow additional file types in the Media Library. Enable only what's needed; restrict to admins where possible.</div>
+          </div>
+          <div class="card-body">
+
+            <!-- SVG -->
+            <div class="sub-section">SVG Files</div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Allow SVG Uploads</div>
+                <div class="setting-hint">SVGs can contain malicious code — restrict to admins when possible.</div>
+              </div>
+              <div class="setting-control"><div class="switch"></div></div>
+            </div>
+            <div class="setting-row indented disabled-hint">
+              <div class="setting-info">
+                <div class="setting-label">Restrict to Administrators</div>
+                <div class="setting-hint">Only users with <code style="font-size:11.5px;background:var(--muted);padding:0 4px;border-radius:3px;">manage_options</code> can upload SVGs.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+
+            <!-- Fonts -->
+            <div class="sub-section">Font Files <span style="font-weight:400;font-size:11px;">(OTF, TTF, WOFF, WOFF2)</span></div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Allow Font Uploads</div>
+                <div class="setting-hint">Enables custom font files for use with Divi or custom CSS.</div>
+              </div>
+              <div class="setting-control"><div class="switch"></div></div>
+            </div>
+            <div class="setting-row indented disabled-hint">
+              <div class="setting-info">
+                <div class="setting-label">Restrict to Administrators</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+
+            <!-- Lottie -->
+            <div class="sub-section">Lottie Animations <span style="font-weight:400;font-size:11px;">(.json, .lottie)</span></div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Allow Lottie Uploads</div>
+                <div class="setting-hint">Enables .json and .lottie files for animation libraries.</div>
+              </div>
+              <div class="setting-control"><div class="switch"></div></div>
+            </div>
+            <div class="setting-row indented disabled-hint">
+              <div class="setting-info">
+                <div class="setting-label">Restrict to Administrators</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /security -->
+
+
+      <!-- ═══════════════════════════════════════
+           TAB: PERFORMANCE
+      ════════════════════════════════════════ -->
+      <div id="tab-performance" class="tab-panel">
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Block Editor (Gutenberg)</div>
+            <div class="card-desc">Control how Gutenberg CSS/JS are loaded across the site.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info"><div class="setting-label">Mode</div></div>
+              <div class="setting-control">
+                <div class="radio-group" style="min-width:320px;">
+                  <label class="radio-option">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Default</strong><span>WordPress default Gutenberg behavior</span></div>
+                  </label>
+                  <label class="radio-option selected">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Optimize</strong> <span class="badge" style="vertical-align:middle;">Recommended</span><span>Remove CSS/JS on non-block pages</span></div>
+                  </label>
+                  <label class="radio-option">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Disable</strong><span>Disable block editor entirely (use Classic Editor)</span></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Query Optimizations</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Optimize Search Queries</div>
+                <div class="setting-hint">Adds post type limits to search queries to reduce DB load.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Optimize Archive Queries</div>
+                <div class="setting-hint">Limits fields returned for archive listings.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Images</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Native Lazy Loading</div>
+                <div class="setting-hint">Adds <code style="font-size:11.5px;background:var(--muted);padding:0 4px;border-radius:3px;">loading="lazy"</code> and aspect-ratio CSS to reduce Cumulative Layout Shift.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Always Remove medium_large Size</div>
+                <div class="setting-hint">Prevents WordPress from generating the 768px intermediate size on upload.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Disable Additional Image Sizes</div>
+                <div class="setting-hint">Stop WordPress from generating specific sizes on upload. Sizes are detected from registered themes/plugins.</div>
+              </div>
+              <div class="setting-control" style="flex-direction:column;align-items:flex-start;gap:5px;min-width:220px;">
+                <label class="check-item"><div class="check-box"></div> thumbnail (150×150)</label>
+                <label class="check-item"><div class="check-box"></div> medium (300×300)</label>
+                <label class="check-item"><div class="check-box"></div> large (1024×1024)</label>
+                <label class="check-item"><div class="check-box"></div> 1536x1536</label>
+                <label class="check-item"><div class="check-box"></div> 2048x2048</label>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Remove s.w.org DNS Prefetch</div>
+                <div class="setting-hint">Removes the WordPress.org DNS prefetch hint from the document head.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Post Revisions</div>
+            <div class="card-desc">Limit how many revisions WordPress keeps per post to reduce database bloat.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info"><div class="setting-label">Revision Policy</div></div>
+              <div class="setting-control">
+                <div class="radio-group" style="min-width:300px;">
+                  <label class="radio-option">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Unlimited</strong><span>WordPress default — keep all revisions</span></div>
+                  </label>
+                  <label class="radio-option selected">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text">
+                      <strong>Limited</strong>
+                      <span>Keep <input class="input" type="number" value="5" min="1" max="100" style="width:52px;height:24px;padding:0 6px;font-size:12px;display:inline;margin:0 4px;"> revisions per post</span>
+                    </div>
+                  </label>
+                  <label class="radio-option">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Disabled</strong><span>Never save post revisions</span></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /performance -->
+
+
+      <!-- ═══════════════════════════════════════
+           TAB: GRAVITY FORMS
+      ════════════════════════════════════════ -->
+      <div id="tab-gravity" class="tab-panel">
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              Gravity Forms / Divi Compatibility
+            </div>
+            <div class="card-desc">Fixes "gf_global is not defined" errors caused by Divi's script optimization.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Enable Compatibility Fixes</div>
+                <div class="setting-hint">Prevents Divi from deferring Gravity Forms scripts on pages with forms.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Detection Mode</div>
+                <div class="setting-hint">How CDG Core identifies pages that have Gravity Forms.</div>
+              </div>
+              <div class="setting-control">
+                <div class="radio-group" style="min-width:280px;">
+                  <label class="radio-option selected">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Auto-detect</strong> <span class="badge" style="vertical-align:middle;">Recommended</span><span>Detects forms via shortcodes and Divi modules</span></div>
+                  </label>
+                  <label class="radio-option">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Manual only</strong><span>Only apply fixes to pages listed below</span></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Additional Pages (Manual)</div>
+                <div class="setting-hint">Page slugs to always apply fixes to, one per line. Works alongside auto-detect.</div>
+              </div>
+              <div class="setting-control" style="flex:1;max-width:320px;">
+                <textarea class="input lg mono" rows="5" placeholder="contact&#10;submit-form&#10;get-a-quote"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /gravity -->
+
+
+      <!-- ═══════════════════════════════════════
+           TAB: ADMIN
+      ════════════════════════════════════════ -->
+      <div id="tab-admin" class="tab-panel">
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Admin Branding</div>
+            <div class="card-desc">Customize the WordPress admin footer with CDG branding.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Enable Custom Footer</div>
+                <div class="setting-hint">Replaces "Thank you for creating with WordPress" with custom text.</div>
+              </div>
+              <div class="setting-control"><div class="switch on"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-label">Footer Text</div>
+                <div class="setting-hint">HTML allowed. Links, em, strong are supported.</div>
+              </div>
+              <div class="setting-control" style="flex:1;">
+                <input class="input lg" type="text" value='Website by <a href="https://crawforddesigngroup.com">Crawford Design Group</a>'>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Browser Theme Color</div>
+            <div class="card-desc">Controls the <code style="font-size:12px;background:var(--muted);padding:1px 5px;border-radius:3px;">&lt;meta name="theme-color"&gt;</code> tag — used by mobile browsers to tint the address bar.</div>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div class="setting-info"><div class="setting-label">Mode</div></div>
+              <div class="setting-control">
+                <div class="radio-group" style="min-width:300px;">
+                  <label class="radio-option selected">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Auto</strong><span>Reads Divi's accent color automatically</span></div>
+                  </label>
+                  <label class="radio-option">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Custom</strong><span>Use a manually specified hex color</span></div>
+                  </label>
+                  <label class="radio-option">
+                    <div class="radio-dot"></div>
+                    <div class="radio-text"><strong>Disabled</strong><span>Do not output a theme-color meta tag</span></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="setting-row disabled-hint">
+              <div class="setting-info">
+                <div class="setting-label">Custom Color</div>
+                <div class="setting-hint">Only used when mode is set to "Custom". Enter a valid hex value.</div>
+              </div>
+              <div class="setting-control">
+                <div class="color-row">
+                  <div class="color-swatch"></div>
+                  <input class="input" type="text" value="#F34F27" style="width:110px;" placeholder="#F34F27">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Custom Admin CSS</div>
+            <div class="card-desc">Raw CSS injected into every admin page via <code style="font-size:12px;background:var(--muted);padding:1px 5px;border-radius:3px;">&lt;style&gt;</code> in the <code style="font-size:12px;background:var(--muted);padding:1px 5px;border-radius:3px;">&lt;head&gt;</code>.</div>
+          </div>
+          <div class="card-body">
+            <div style="padding:16px 20px;">
+              <textarea class="input lg mono" rows="10" style="font-size:12px;line-height:1.6;">#wpfooter a { color: #F34F27; }
+#adminmenu .wp-submenu-head { font-size: 12px; font-weight: 500; }
+#adminmenu .wp-submenu a { font-size: 11px; }
+#wpbody-content, #wpcontent { background-color: #f7f7f8; }
+.postbox { border-radius: 8px; border-color: #e0e0e0; }
+.button { border-radius: 6px; }</textarea>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /admin -->
+
+    </main><!-- /content -->
+  </div><!-- /body-layout -->
+
+  <!-- Save Bar -->
+  <div class="save-bar">
+    <span>CDG Core v1.4.0 · WordPress 6.7.2</span>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-outline">Reset Tab to Defaults</button>
+      <button class="btn btn-primary">Save Changes</button>
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<script>
+  function showTab(id, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  // Toggle switches for demo
+  document.querySelectorAll('.switch').forEach(sw => {
+    sw.addEventListener('click', () => sw.classList.toggle('on'));
+  });
+
+  // Toggle radio options for demo
+  document.querySelectorAll('.radio-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const group = opt.closest('.radio-group');
+      group.querySelectorAll('.radio-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+    });
+  });
+</script>
+</body>
+</html>
