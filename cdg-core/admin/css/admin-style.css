@@ -3,50 +3,50 @@
  */
 
 .cdg-core-settings .nav-tab-wrapper {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .cdg-core-settings h1 small {
-    font-size: 12px;
-    font-weight: normal;
-    color: #666;
-    margin-left: 10px;
+  font-size: 12px;
+  font-weight: normal;
+  color: #666;
+  margin-left: 10px;
 }
 
 .cdg-core-settings h2 {
-    margin-top: 30px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #ccd0d4;
+  margin-top: 30px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ccd0d4;
 }
 
 .cdg-core-settings h2:first-child {
-    margin-top: 0;
+  margin-top: 0;
 }
 
 .cdg-core-settings .form-table th {
-    width: 200px;
-    padding-top: 15px;
+  width: 200px;
+  padding-top: 15px;
 }
 
 .cdg-core-settings .form-table td {
-    padding-top: 15px;
+  padding-top: 15px;
 }
 
 .cdg-core-settings .form-table label {
-    cursor: pointer;
+  cursor: pointer;
 }
 
 .cdg-core-settings .description {
-    color: #666;
-    font-style: italic;
+  color: #666;
+  font-style: italic;
 }
 
 .cdg-core-settings .notice.inline {
-    margin: 10px 0;
+  margin: 10px 0;
 }
 
 .cdg-core-settings code {
-    background: #f0f0f0;
-    padding: 2px 6px;
-    border-radius: 3px;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 3px;
 }

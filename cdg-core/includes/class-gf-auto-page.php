@@ -101,6 +101,13 @@ class CDG_Core_GF_Auto_Page
             return;
         }
 
+        wp_enqueue_style(
+            'cdg-gf-auto-page',
+            CDG_CORE_URL . 'admin/css/gf-auto-page.css',
+            [],
+            CDG_CORE_VERSION
+        );
+
         wp_enqueue_script(
             'cdg-gf-auto-page',
             CDG_CORE_URL . 'admin/js/gf-auto-page.js',
