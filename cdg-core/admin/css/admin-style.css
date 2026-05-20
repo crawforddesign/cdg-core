@@ -89,9 +89,10 @@
 
 /* ── Body layout ── */
 .cdg-body-layout {
-  display: flex;
+  display: flex !important;
   gap: 24px;
   align-items: flex-start;
+  float: none !important; /* WP admin uses float layout; don't inherit it */
 }
 
 
@@ -256,11 +257,19 @@
   cursor: pointer;
 }
 
+/* WP admin 6.x force-styles checkboxes — !important needed to win */
 .cdg-switch input[type="checkbox"] {
-  opacity: 0;
-  width: 0;
-  height: 0;
-  position: absolute;
+  opacity: 0 !important;
+  width:   0 !important;
+  height:  0 !important;
+  position: absolute !important;
+  margin:  0 !important;
+  padding: 0 !important;
+  border:  none !important;
+  background: none !important;
+  box-shadow: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
 }
 
 .cdg-switch-slider {
@@ -320,10 +329,17 @@
 }
 
 .cdg-radio-card input[type="radio"] {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
+  position: absolute !important;
+  opacity:  0 !important;
+  width:    0 !important;
+  height:   0 !important;
+  margin:   0 !important;
+  padding:  0 !important;
+  border:   none !important;
+  background: none !important;
+  box-shadow: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
 }
 
 .cdg-radio-card:has(input:checked) {
@@ -422,12 +438,19 @@
   padding: 1px 0;
 }
 
-/* Visually hide the native checkbox */
+/* Visually hide the native checkbox; WP admin 6.x needs !important to override */
 .cdg-check-item input[type="checkbox"] {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
+  position: absolute !important;
+  opacity:  0 !important;
+  width:    0 !important;
+  height:   0 !important;
+  margin:   0 !important;
+  padding:  0 !important;
+  border:   none !important;
+  background: none !important;
+  box-shadow: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
 }
 
 .cdg-check-box {

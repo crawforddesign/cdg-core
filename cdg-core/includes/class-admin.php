@@ -39,17 +39,26 @@ class CDG_Core_Admin
       return;
     }
 
+    // Use filemtime so any file change automatically busts the browser cache.
+    $css_ver = file_exists(CDG_CORE_DIR . "admin/css/admin-style.css")
+      ? filemtime(CDG_CORE_DIR . "admin/css/admin-style.css")
+      : CDG_CORE_VERSION;
+
+    $js_ver = file_exists(CDG_CORE_DIR . "admin/js/admin-script.js")
+      ? filemtime(CDG_CORE_DIR . "admin/js/admin-script.js")
+      : CDG_CORE_VERSION;
+
     wp_enqueue_style(
       "cdg-core-admin",
       CDG_CORE_URL . "admin/css/admin-style.css",
       [],
-      CDG_CORE_VERSION
+      $css_ver
     );
     wp_enqueue_script(
       "cdg-core-admin",
       CDG_CORE_URL . "admin/js/admin-script.js",
       [],
-      CDG_CORE_VERSION,
+      $js_ver,
       true
     );
   }
@@ -598,7 +607,7 @@ class CDG_Core_Admin
           "remove_at_a_glance"   => "At a Glance",
           "remove_activity"      => "Activity",
           "remove_quick_draft"   => "Quick Draft",
-          "remove_wp_news"       => "Events &amp; News",
+          "remove_wp_news"       => "Events & News",
           "remove_site_health"   => "Site Health Status",
           "remove_php_nag"       => "PHP Update Nag",
           "remove_browser_nag"   => "Browser Nag",
