@@ -256,6 +256,11 @@ class CDG_Core_Admin
                 <?php echo esc_html($label); ?>
               </a>
             <?php endforeach; ?>
+            <div class="cdg-sidebar-save">
+              <button type="submit" name="cdg_core_save_settings" class="cdg-btn cdg-btn-primary cdg-btn-full">
+                <?php esc_html_e("Save Changes", "cdg-core"); ?>
+              </button>
+            </div>
           </nav>
 
           <!-- Tab content -->
@@ -265,15 +270,6 @@ class CDG_Core_Admin
 
         </div>
 
-        <!-- Sticky save bar -->
-        <div class="cdg-save-bar">
-          <span>
-            CDG Core <?php echo esc_html(CDG_CORE_VERSION); ?>&nbsp;&middot;&nbsp;WordPress <?php echo esc_html(get_bloginfo("version")); ?>
-          </span>
-          <button type="submit" name="cdg_core_save_settings" class="cdg-btn cdg-btn-primary">
-            <?php esc_html_e("Save Changes", "cdg-core"); ?>
-          </button>
-        </div>
 
       </form>
     </div>

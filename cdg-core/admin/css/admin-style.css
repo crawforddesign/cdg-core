@@ -673,22 +673,16 @@ textarea.cdg-input {
 }
 
 
-/* ── Save bar ── */
-.cdg-save-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 50;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+/* ── Sidebar save button ── */
+.cdg-sidebar-save {
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid var(--cdg-border);
-  padding: 12px 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--cdg-muted-fg);
+}
+
+.cdg-btn-full {
+  width: 100%;
+  justify-content: center;
 }
 
 
@@ -711,6 +705,12 @@ textarea.cdg-input {
   }
 
   .cdg-sidebar-label { display: none; }
+
+  .cdg-sidebar-save {
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
 
   .cdg-check-grid { grid-template-columns: 1fr; }
 
