@@ -39,28 +39,26 @@ class CDG_Core_Admin
       return;
     }
 
-    // Use filemtime so any file change automatically busts the browser cache.
-    $css_ver = file_exists(CDG_CORE_DIR . "admin/css/admin-style.css")
-      ? filemtime(CDG_CORE_DIR . "admin/css/admin-style.css")
-      : CDG_CORE_VERSION;
+    // SpinupWP (and similar Nginx configs) block direct HTTP access to
+    // /wp-content/mu-plugins/ for security. Rather than link external files
+    // that return 404, we read the files from disk via PHP (no HTTP involved)
+    // and output them inline. PHP can always read its own files.
+    $css_path = CDG_CORE_DIR . "admin/css/admin-style.css";
+    $js_path  = CDG_CORE_DIR . "admin/js/admin-script.js";
 
-    $js_ver = file_exists(CDG_CORE_DIR . "admin/js/admin-script.js")
-      ? filemtime(CDG_CORE_DIR . "admin/js/admin-script.js")
-      : CDG_CORE_VERSION;
+    if (file_exists($css_path)) {
+      // Register with src=false so WP outputs only the inline <style>, no <link>.
+      wp_register_style("cdg-core-admin", false);
+      wp_enqueue_style("cdg-core-admin");
+      wp_add_inline_style("cdg-core-admin", file_get_contents($css_path)); // phpcs:ignore WordPress.WP.AlternativeFunctions
+    }
 
-    wp_enqueue_style(
-      "cdg-core-admin",
-      CDG_CORE_URL . "admin/css/admin-style.css",
-      [],
-      $css_ver
-    );
-    wp_enqueue_script(
-      "cdg-core-admin",
-      CDG_CORE_URL . "admin/js/admin-script.js",
-      [],
-      $js_ver,
-      true
-    );
+    if (file_exists($js_path)) {
+      // Same pattern for JS: register with src=false, then inject inline.
+      wp_register_script("cdg-core-admin", false, [], false, true);
+      wp_enqueue_script("cdg-core-admin");
+      wp_add_inline_script("cdg-core-admin", file_get_contents($js_path)); // phpcs:ignore WordPress.WP.AlternativeFunctions
+    }
   }
 
   public function handle_form_submission(): void
