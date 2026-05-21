@@ -162,7 +162,8 @@
     });
 
     // Save values to sessionStorage when Create is clicked.
-    var createBtn = flyout.querySelector(".gform-flyout__footer-primary-button");
+    // GF 2.10.x renamed __footer-primary-button → __foot-primary-button.
+    var createBtn = flyout.querySelector(".gform-flyout__foot-primary-button");
     if (createBtn) {
       createBtn.addEventListener("click", function () {
         if (checkbox && checkbox.checked) {
