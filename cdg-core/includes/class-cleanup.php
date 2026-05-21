@@ -171,14 +171,6 @@ class CDG_Core_Cleanup
             add_filter('the_generator', '__return_empty_string');
         }
 
-        if ($this->plugin->get_setting('remove_wlw_manifest')) {
-            remove_action('wp_head', 'wlwmanifest_link');
-        }
-
-        if ($this->plugin->get_setting('remove_rsd_link')) {
-            remove_action('wp_head', 'rsd_link');
-        }
-
         if ($this->plugin->get_setting('remove_shortlink')) {
             remove_action('wp_head', 'wp_shortlink_wp_head');
             remove_action('template_redirect', 'wp_shortlink_header', 11);

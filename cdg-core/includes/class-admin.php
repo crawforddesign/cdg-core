@@ -124,8 +124,6 @@ class CDG_Core_Admin
 
       case "cleanup":
         $s["remove_wp_version"]    = !empty($input["remove_wp_version"]);
-        $s["remove_wlw_manifest"]  = !empty($input["remove_wlw_manifest"]);
-        $s["remove_rsd_link"]      = !empty($input["remove_rsd_link"]);
         $s["remove_shortlink"]     = !empty($input["remove_shortlink"]);
         $s["remove_adjacent_posts"] = !empty($input["remove_adjacent_posts"]);
         $s["remove_oembed_links"]  = !empty($input["remove_oembed_links"]);
@@ -574,8 +572,6 @@ class CDG_Core_Admin
       function () use ($s) {
         $items = [
           "remove_wp_version"    => "WordPress version",
-          "remove_wlw_manifest"  => "WLW Manifest",
-          "remove_rsd_link"      => "RSD link",
           "remove_shortlink"     => "Shortlink",
           "remove_adjacent_posts" => "Adjacent posts",
           "remove_oembed_links"  => "oEmbed links",
