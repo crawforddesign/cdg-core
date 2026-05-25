@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.3.1
+## Version 1.6.5
 
 ### Requirements
 
@@ -15,7 +15,7 @@ WordPress optimizations, security hardening, and agency features for Crawford De
 
 1. Upload `cdg-core/` folder to `/wp-content/mu-plugins/`
 2. Upload `cdg-core.php` to `/wp-content/mu-plugins/`
-3. Visit **Settings → CDG Core** to configure
+3. Visit **Settings > CDG Core** to configure
 
 ### Features
 
@@ -25,49 +25,57 @@ WordPress optimizations, security hardening, and agency features for Crawford De
 - **Font upload support** (OTF, TTF, WOFF, WOFF2) with admin-only restriction
 - **Lottie/JSON upload support** with admin-only restriction
 - Performance optimizations (Gutenberg, queries, images)
-- Gravity Forms / Divi compatibility fixes
+- Gravity Forms / Divi compatibility fixes and auto-page generation
 - Documentation system for editors
 - CPT Dashboard widgets
 - **Disable Comments** (full system disable)
 - **Hide Divi Projects**
+- **Plugin Visibility** - hide plugins from non-administrator users
 - Admin branding & default admin CSS
 
 ### File Structure
 
 ```
 mu-plugins/
-├── cdg-core.php                      ← Loader file
-└── cdg-core/
-	├── cdg-core-main.php             ← Main plugin file
-	├── README.md
-	├── includes/
-	│   ├── class-admin.php           ← Admin UI & settings
-	│   ├── class-cleanup.php         ← WordPress head cleanup
-	│   ├── class-cpt-dashboard.php   ← CPT dashboard widgets
-	│   ├── class-defaults.php        ← Comments & Divi defaults
-	│   ├── class-documentation.php   ← Documentation CPT
-	│   ├── class-font-support.php    ← Font upload support
-	│   ├── class-gravity-forms.php   ← GF/Divi compatibility
-	│   ├── class-lottie-support.php  ← Lottie upload support
-	│   ├── class-performance.php     ← Performance optimizations
-	│   ├── class-security.php        ← Security hardening
-	│   └── class-svg-support.php     ← SVG upload support
-	└── admin/
-		├── js/admin-script.js
-		└── css/admin-style.css
++-- cdg-core.php                      <- Loader file
++-- cdg-core/
+    +-- cdg-core-main.php             <- Main plugin file
+    +-- README.md
+    +-- includes/
+    |   +-- class-admin.php           <- Admin UI & settings
+    |   +-- class-cleanup.php         <- WordPress head cleanup
+    |   +-- class-cpt-dashboard.php   <- CPT dashboard widgets
+    |   +-- class-defaults.php        <- Comments & Divi defaults
+    |   +-- class-documentation.php   <- Documentation CPT
+    |   +-- class-font-support.php    <- Font upload support
+    |   +-- class-gf-auto-page.php    <- GF auto page generation
+    |   +-- class-gravity-forms.php   <- GF/Divi compatibility
+    |   +-- class-lottie-support.php  <- Lottie upload support
+    |   +-- class-performance.php     <- Performance optimizations
+    |   +-- class-plugin-visibility.php <- Plugin visibility control
+    |   +-- class-security.php        <- Security hardening
+    |   +-- class-svg-support.php     <- SVG upload support
+    +-- admin/
+        +-- js/
+        |   +-- admin-script.js
+        |   +-- gf-auto-page.js       <- GF auto-page JS
+        +-- css/
+            +-- admin-style.css
+            +-- gf-auto-page.css
 ```
 
 ### Settings Tabs
 
-| Tab                   | Description                                             |
-| --------------------- | ------------------------------------------------------- |
-| **Features**          | Documentation system, CPT widgets                       |
-| **Defaults**          | Comments, Divi Projects                                 |
-| **WordPress Cleanup** | Head cleanup, dashboard widgets, heartbeat              |
-| **Security**          | XML-RPC, uploads, X-Powered-By, SVG/Font/Lottie support |
-| **Performance**       | Gutenberg, queries, images, revisions                   |
-| **Gravity Forms**     | Divi/GF compatibility fixes                             |
-| **Admin**             | Branding, custom CSS                                    |
+| Tab               | Description                                              |
+| ----------------- | -------------------------------------------------------- |
+| **Features**      | Documentation system, CPT widgets                        |
+| **Defaults**      | Comments, Divi Projects                                  |
+| **WP Cleanup**    | Head cleanup, dashboard widgets, heartbeat               |
+| **Security**      | XML-RPC, uploads, X-Powered-By, SVG/Font/Lottie support  |
+| **Performance**   | Gutenberg, queries, images, revisions                    |
+| **Gravity Forms** | Divi/GF compatibility fixes and auto-page generation     |
+| **Admin**         | Branding, theme color, custom CSS                        |
+| **Plugins**       | Hide plugins from non-administrator users                |
 
 ### SpinupWP Compatibility
 
@@ -135,6 +143,20 @@ Supported formats: .json, .lottie
 - **Enable Lottie Uploads**: Disabled by default
 - **Restrict to Admins**: Enabled by default
 
+### Gravity Forms Tab
+
+#### Divi Compatibility Fixes
+
+Prevents Divi from deferring Gravity Forms scripts on pages with forms, fixing "gf_global is not defined" errors. Supports auto-detect and manual page slug modes.
+
+#### Auto-Page Generation
+
+When creating a new Gravity Forms form, an optional checkbox in the form creation flyout will automatically generate a draft `cdg_form` custom post type page pre-loaded with a Divi 5 GF Styler module pointed at the new form. A "View Form Page" button is injected next to the Save Form button in the form editor.
+
+### Plugins Tab
+
+The Plugins tab lets you select specific plugins to hide from the WordPress Plugins page for all non-administrator users. Administrators always see every plugin. Plugins remain active - they are only hidden from the list view.
+
 ### Heartbeat Control
 
 Control WordPress heartbeat API behavior:
@@ -176,6 +198,15 @@ GITHUB_TOKEN="your_token" ./deploy-cdg-core.sh development
 ```
 
 ### Changelog
+
+#### 1.6.5
+
+- Fixed GravityForms auto-page creation broken by GF 2.10.x admin UI changes (flyout button class renamed from `__footer-primary-button` to `__foot-primary-button`)
+- Added Plugin Visibility feature: hide specific plugins from the Plugins page for non-administrator users
+- Added Plugins settings tab with alphabetically sorted plugin checklist
+- Added `class-plugin-visibility.php`
+- Changed settings radio group layout from vertical column to horizontal row
+- Changed plugin list to use two-column grid layout
 
 #### 1.3.1
 

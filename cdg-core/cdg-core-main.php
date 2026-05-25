@@ -6,7 +6,7 @@
  * for Crawford Design Group client sites.
  *
  * @package CDG_Core
- * @version 1.4.0
+ * @version 1.6.5
  * @author Crawford Design Group
  * @link https://crawforddesigngroup.com
  */
@@ -19,7 +19,7 @@ if (!defined("ABSPATH")) {
 /**
  * Plugin Constants
  */
-define("CDG_CORE_VERSION", "1.4.0");
+define("CDG_CORE_VERSION", "1.6.5");
 define("CDG_CORE_DIR", plugin_dir_path(__FILE__));
 define("CDG_CORE_URL", plugin_dir_url(__FILE__));
 define("CDG_CORE_BASENAME", plugin_basename(__FILE__));
