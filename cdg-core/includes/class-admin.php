@@ -110,7 +110,6 @@ class CDG_Core_Admin
         $s["documentation_widget_limit"] = absint($input["documentation_widget_limit"] ?? 5);
 
         $s["enable_cpt_widgets"] = !empty($input["enable_cpt_widgets"]);
-        $s["show_cpt_widgets"]   = !empty($input["show_cpt_widgets"]);
         $s["cpt_module_style"]   = sanitize_text_field($input["cpt_module_style"] ?? "informative");
         $s["selected_cpts"]      = array_map("sanitize_text_field", (array) ($input["selected_cpts"] ?? []));
         $s["show_recent_posts"]  = !empty($input["show_recent_posts"]);

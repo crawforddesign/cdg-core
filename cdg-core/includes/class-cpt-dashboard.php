@@ -47,10 +47,6 @@ class CDG_Core_CPT_Dashboard
      */
     public function add_dashboard_widgets(): void
     {
-        if (!$this->plugin->get_setting('show_cpt_widgets')) {
-            return;
-        }
-
         $selected_cpts = $this->plugin->get_setting('selected_cpts');
         
         if (!is_array($selected_cpts) || empty($selected_cpts)) {
