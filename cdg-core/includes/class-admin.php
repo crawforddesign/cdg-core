@@ -177,6 +177,14 @@ class CDG_Core_Admin
         $s["gf_manual_pages"]    = array_filter(array_map("trim", explode("\n", $manual_pages)));
         break;
 
+      case "plugins":
+        // Validate submitted plugin files against the actual installed plugin list
+        // so arbitrary file paths cannot be stored.
+        $all_plugin_files        = array_keys(CDG_Core_Plugin_Visibility::get_all_plugins());
+        $submitted               = array_map("sanitize_text_field", (array) ($input["hidden_plugins"] ?? []));
+        $s["hidden_plugins"]     = array_values(array_intersect($submitted, $all_plugin_files));
+        break;
+
       case "admin":
         $s["enable_admin_branding"] = !empty($input["enable_admin_branding"]);
         $s["admin_footer_text"]     = wp_kses_post($input["admin_footer_text"] ?? "");
@@ -221,6 +229,7 @@ class CDG_Core_Admin
       "performance"  => "Performance",
       "gravity-forms" => "Gravity Forms",
       "admin"        => "Admin",
+      "plugins"      => "Plugins",
     ];
     ?>
     <div class="wrap cdg-v2">
@@ -284,6 +293,7 @@ class CDG_Core_Admin
       case "performance":  $this->tab_performance($s);   break;
       case "gravity-forms": $this->tab_gravity_forms($s); break;
       case "admin":        $this->tab_admin($s);         break;
+      case "plugins":      $this->tab_plugins($s);       break;
     }
   }
 
@@ -400,6 +410,7 @@ class CDG_Core_Admin
       "performance"   => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
       "gravity-forms" => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>',
       "admin"         => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+      "plugins"       => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="6.5"/></svg>',
     ];
 
     return $icons[$tab] ?? "";
@@ -982,6 +993,45 @@ class CDG_Core_Admin
         echo '<textarea name="custom_admin_css" rows="12" class="cdg-input cdg-input-mono" style="width:100%;">'
           . esc_textarea($s["custom_admin_css"])
           . '</textarea>';
+        echo '</div>';
+      }
+    );
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════
+   * TAB: PLUGINS
+   * ═══════════════════════════════════════════════════════════ */
+
+  private function tab_plugins(array $s): void
+  {
+    $this->card(
+      "Plugin Visibility",
+      "Hide specific plugins from the Plugins page for all non-administrator users. Administrators always see every plugin regardless of this setting.",
+      function () use ($s) {
+        $all_plugins = CDG_Core_Plugin_Visibility::get_all_plugins();
+        $hidden      = $s["hidden_plugins"] ?? [];
+
+        if (empty($all_plugins)) {
+          echo '<div class="cdg-empty">' . esc_html__("No plugins found.", "cdg-core") . '</div>';
+          return;
+        }
+
+        // Sort alphabetically by plugin name.
+        uasort($all_plugins, fn($a, $b) => strcmp($a["Name"] ?? "", $b["Name"] ?? ""));
+
+        echo '<div class="cdg-check-list">';
+        foreach ($all_plugins as $plugin_file => $plugin_data) {
+          $name = $plugin_data["Name"] ?? $plugin_file;
+          echo '<label class="cdg-check-item">'
+            . '<input type="checkbox" name="hidden_plugins[]" value="' . esc_attr($plugin_file) . '"'
+            . (in_array($plugin_file, $hidden, true) ? " checked" : "") . '>'
+            . '<span class="cdg-check-box"></span>'
+            . '<span>' . esc_html($name)
+            . ' <span class="cdg-widget-id">' . esc_html($plugin_file) . '</span>'
+            . '</span>'
+            . '</label>';
+        }
         echo '</div>';
       }
     );

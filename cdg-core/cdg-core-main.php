@@ -148,6 +148,9 @@ final class CDG_Core
     "gf_detection_mode" => "auto",
     "gf_manual_pages" => [],
 
+    // Plugin Visibility
+    "hidden_plugins" => [],
+
     // Admin
     "admin_footer_text" =>
       'Website by <a href="https://crawforddesigngroup.com" target="_blank">Crawford Design Group</a>',
@@ -288,6 +291,9 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
       new CDG_Core_Gravity_Forms($this);
       new CDG_Core_GF_Auto_Page($this);
     }
+
+    // Plugin Visibility — always active; filter is a no-op when list is empty.
+    new CDG_Core_Plugin_Visibility($this);
 
     // SVG Support - initialize regardless of setting (class checks internally)
     new CDG_Core_SVG_Support($this);
