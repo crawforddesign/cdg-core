@@ -312,9 +312,9 @@
 /* ── Radio cards ── */
 .cdg-radio-group {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 6px;
-  min-width: 260px;
 }
 
 .cdg-radio-card {
@@ -719,5 +719,5 @@ textarea.cdg-input {
     gap: 12px;
   }
 
-  .cdg-radio-group { min-width: unset; width: 100%; }
+  .cdg-radio-group { flex-direction: column; width: 100%; }
 }

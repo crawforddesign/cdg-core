@@ -1020,16 +1020,14 @@ class CDG_Core_Admin
         // Sort alphabetically by plugin name.
         uasort($all_plugins, fn($a, $b) => strcmp($a["Name"] ?? "", $b["Name"] ?? ""));
 
-        echo '<div class="cdg-check-list">';
+        echo '<div class="cdg-check-grid">';
         foreach ($all_plugins as $plugin_file => $plugin_data) {
           $name = $plugin_data["Name"] ?? $plugin_file;
           echo '<label class="cdg-check-item">'
             . '<input type="checkbox" name="hidden_plugins[]" value="' . esc_attr($plugin_file) . '"'
             . (in_array($plugin_file, $hidden, true) ? " checked" : "") . '>'
             . '<span class="cdg-check-box"></span>'
-            . '<span>' . esc_html($name)
-            . ' <span class="cdg-widget-id">' . esc_html($plugin_file) . '</span>'
-            . '</span>'
+            . '<span>' . esc_html($name) . '</span>'
             . '</label>';
         }
         echo '</div>';
