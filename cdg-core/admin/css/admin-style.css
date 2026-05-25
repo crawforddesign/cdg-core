@@ -693,6 +693,86 @@ textarea.cdg-input {
 }
 
 
+/* ── Guide tab ── */
+.cdg-guide-body {
+  padding: 20px;
+}
+
+.cdg-guide-intro {
+  font-size: 13.5px;
+  color: var(--cdg-fg-2);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.cdg-guide-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cdg-guide-item-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--cdg-fg);
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.cdg-guide-item-desc {
+  font-size: 13px;
+  color: var(--cdg-muted-fg);
+  line-height: 1.6;
+}
+
+.cdg-guide-item-desc code {
+  font-size: 11.5px;
+  background: var(--cdg-muted);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: "Courier New", Consolas, monospace;
+  color: var(--cdg-fg-2);
+  border: 1px solid var(--cdg-border);
+}
+
+.cdg-guide-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--cdg-radius);
+  padding: 11px 14px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #1d4ed8;
+  margin-top: 18px;
+}
+
+.cdg-guide-note svg {
+  width: 14px !important;
+  height: 14px !important;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.cdg-guide-link {
+  color: var(--cdg-fg);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cdg-guide-link:hover {
+  color: var(--cdg-primary);
+}
+
+/* Hide the sidebar Save button on the Guide tab (read-only) */
+.cdg-v2[data-tab="guide"] .cdg-sidebar-save {
+  display: none;
+}
+
+
 /* ── Responsive ── */
 @media (max-width: 782px) {
   .cdg-body-layout { flex-direction: column; }

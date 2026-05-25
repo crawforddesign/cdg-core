@@ -230,9 +230,10 @@ class CDG_Core_Admin
       "gravity-forms" => "Gravity Forms",
       "admin"        => "Admin",
       "plugins"      => "Plugins",
+      "guide"        => "Guide",
     ];
     ?>
-    <div class="wrap cdg-v2">
+    <div class="wrap cdg-v2" data-tab="<?php echo esc_attr($active_tab); ?>">
 
       <div class="cdg-page-header">
         <div class="cdg-page-title">
@@ -295,6 +296,7 @@ class CDG_Core_Admin
       case "gravity-forms": $this->tab_gravity_forms($s); break;
       case "admin":        $this->tab_admin($s);         break;
       case "plugins":      $this->tab_plugins($s);       break;
+      case "guide":        $this->tab_guide();           break;
     }
   }
 
@@ -412,6 +414,7 @@ class CDG_Core_Admin
       "gravity-forms" => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>',
       "admin"         => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
       "plugins"       => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="6.5"/></svg>',
+      "guide"         => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
     ];
 
     return $icons[$tab] ?? "";
@@ -1034,6 +1037,210 @@ class CDG_Core_Admin
         echo '</div>';
       }
     );
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════
+   * TAB: GUIDE
+   * ═══════════════════════════════════════════════════════════ */
+
+  private function tab_guide(): void
+  {
+    // ── Overview ──────────────────────────────────────────────
+    $this->card(
+      "About CDG Core",
+      "",
+      function () {
+        echo '<div class="cdg-guide-body">';
+        echo '<p class="cdg-guide-intro">CDG Core is a must-use plugin that handles WordPress optimization, security hardening, and agency-specific features for Crawford Design Group client sites. It loads automatically from the <code>mu-plugins</code> directory and cannot be disabled from the Plugins page.</p>';
+        echo '<p class="cdg-guide-intro" style="margin-top:10px;">Settings are organized into tabs in the left sidebar. The Security Audit is a separate read-only tool available under <a class="cdg-guide-link" href="' . esc_url(admin_url('tools.php?page=cdg-security-audit')) . '">Tools &rsaquo; Security Audit</a>.</p>';
+        echo '</div>';
+      }
+    );
+
+    // ── Features ──────────────────────────────────────────────
+    $this->card(
+      "Features",
+      "Custom post types and dashboard enhancements.",
+      function () {
+        $this->section_label("Documentation System");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("Documentation CPT", 'Registers a <code>cdg_documentation</code> post type with category and tag taxonomies. Articles are created under the Documentation menu and can be assigned to categories. Disable this if the site does not need an internal knowledge base.');
+        $this->guide_item("Dashboard Widgets", 'When enabled, documentation articles appear on the WordPress dashboard in card widgets grouped by category. The Widget Style setting controls whether each category gets its own widget (Informative) or all articles are collapsed into one (Minimal).');
+        $this->guide_item("Docs Per Widget", 'Caps the number of articles shown per widget. If a category has more articles than the limit, they are truncated. Increase to 10&ndash;20 for larger knowledge bases.');
+        echo '</div>';
+
+        $this->section_label("CPT Dashboard Widgets");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("CPT Widgets", 'Displays quick-access dashboard widgets for selected custom post types. Useful for giving editors fast access to common post types without navigating the admin menu.');
+        $this->guide_item("Post Types to Show", 'Only custom post types registered at page load are listed. If a CPT is not appearing, ensure it is registered before CDG Core initializes (priority 10 on <code>init</code>).');
+        $this->guide_item("Show Recent Posts", 'When on, each CPT widget also shows a short list of recent entries. Set the limit to 1&ndash;3 for compact widgets.');
+        echo '</div>';
+      }
+    );
+
+    // ── Defaults ──────────────────────────────────────────────
+    $this->card(
+      "Defaults",
+      "Site-wide WordPress and Divi behavior changes.",
+      function () {
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("Disable Comments", 'Completely removes the WordPress comment system site-wide: hides the Comments admin menu, disables Discussion settings, blocks direct access to comment-related admin pages, disables comment REST API endpoints, and redirects comment feeds. Safe to enable on all sites that do not use comments.');
+        $this->guide_item("Hide Divi Projects", "Unregisters Divi's built-in Projects post type along with its Project Categories and Project Tags taxonomies. Enable on any site that uses Divi but does not use the Projects feature.");
+        echo '</div>';
+      }
+    );
+
+    // ── WP Cleanup ────────────────────────────────────────────
+    $this->card(
+      "WP Cleanup",
+      "Head tag cleanup, dashboard widget management, and heartbeat control.",
+      function () {
+        $this->section_label("WordPress Head Cleanup");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("WordPress Version", 'Removes the <code>&lt;meta name="generator"&gt;</code> tag that broadcasts the WordPress version. Reducing version exposure is a first-line hardening step. The Security Audit also checks for this.');
+        $this->guide_item("Shortlink / Adjacent Posts / oEmbed / REST API Link", 'Each removes a corresponding <code>&lt;link&gt;</code> tag from the document head. These are rarely needed on production sites and add unnecessary weight to every page response.');
+        $this->guide_item("WordPress Emojis", 'Removes the emoji detection script and stylesheet that WordPress injects on every page. Saves two HTTP requests per page load on sites that do not use WordPress emoji shortcodes.');
+        echo '</div>';
+
+        $this->section_label("Dashboard Widgets");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("WordPress Core Widgets", 'Toggle individual core dashboard widgets. Quick Draft, Events &amp; News, and the PHP/browser nag banners are hidden by default as they add noise for client accounts.');
+        $this->guide_item("Plugin Widgets", 'Plugin-registered dashboard widgets are detected and listed here after you visit the Dashboard at least once. Check any that should be hidden from all users.');
+        echo '</div>';
+
+        $this->section_label("Heartbeat");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("Admin Heartbeat", 'Controls how often the browser polls the server in admin pages. The default of 15 seconds is aggressive. 60 seconds is recommended for most sites; it still supports autosave and session keepalive with much less server load.');
+        $this->guide_item("Frontend Heartbeat", 'The heartbeat API runs on the front end by default, serving no practical purpose on most sites. Disabled is recommended unless a theme or plugin requires it.');
+        $this->guide_item("Divi Builder Exception", 'Keeps the heartbeat active while the Divi visual builder is open even if the admin heartbeat is otherwise throttled or disabled. Divi relies on the heartbeat for builder session management.');
+        echo '</div>';
+      }
+    );
+
+    // ── Security ──────────────────────────────────────────────
+    $this->card(
+      "Security",
+      "Hardening toggles and upload permission controls.",
+      function () {
+        $this->section_label("Security Hardening");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("Disable XML-RPC", 'Completely disables the <code>xmlrpc.php</code> endpoint. XML-RPC is a common target for brute-force amplification attacks. Disable unless a specific integration requires it (almost none do on modern sites).');
+        $this->guide_item("Block Dangerous Uploads", 'Prevents <code>.php</code>, <code>.exe</code>, <code>.js</code>, and other executable file types from being uploaded through the Media Library. Stops a common webshell upload vector.');
+        $this->guide_item("Remove X-Powered-By Header", 'Strips the HTTP response header that reveals the PHP version to clients. Complements SpinupWP\'s server-level header hardening.');
+        $this->guide_item("Disable Code Editor", 'Hides the Appearance &rsaquo; Theme Editor and Plugins &rsaquo; Editor from the admin for users without <code>manage_options</code>. Prevents accidental or malicious code edits through the browser.');
+        echo '</div>';
+        echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Security headers (HSTS, X-Frame-Options, X-XSS-Protection, X-Content-Type-Options) are managed at the Nginx level by SpinupWP and are not duplicated here.</span></div>';
+
+        $this->section_label("Upload Permissions");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("SVG Uploads", 'Allows SVG and SVGZ files in the Media Library with preview support and automatic dimension detection. The Restrict to Administrators option limits uploads to <code>manage_options</code> users. Enable the restriction unless editors need to upload SVGs directly.');
+        $this->guide_item("Font Uploads", 'Enables OTF, TTF, WOFF, and WOFF2 uploads for use in Divi or custom <code>@font-face</code> declarations. Restrict to administrators in most cases.');
+        $this->guide_item("Lottie Uploads", 'Enables <code>.json</code> and <code>.lottie</code> animation files in the Media Library. Restrict to administrators unless editors manage their own animation assets.');
+        echo '</div>';
+      }
+    );
+
+    // ── Performance ───────────────────────────────────────────
+    $this->card(
+      "Performance",
+      "Gutenberg, query, image, and revision optimizations.",
+      function () {
+        $this->section_label("Block Editor (Gutenberg)");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("Optimize (recommended for Divi sites)", 'Removes Gutenberg CSS and JS on pages that are not using the block editor. On Divi sites this eliminates unnecessary asset loading on virtually every front-end page.');
+        $this->guide_item("Disable", 'Replaces the block editor entirely with the Classic Editor. Use this only if the site has no block-based content and the team prefers the classic editing experience.');
+        echo '</div>';
+
+        $this->section_label("Query Optimizations");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("Optimize Search", 'Limits search queries to specific post types, reducing the number of database rows scanned per search request.');
+        $this->guide_item("Optimize Archives", 'Restricts the fields returned by archive page queries to reduce memory usage per request.');
+        echo '</div>';
+
+        $this->section_label("Images");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("Native Lazy Loading", 'Adds <code>loading="lazy"</code> and an <code>aspect-ratio</code> inline style to images, reducing Cumulative Layout Shift and deferring off-screen image loads.');
+        $this->guide_item("Always Remove medium_large", 'Prevents WordPress from generating the 768px intermediate size on every upload. This size is rarely used on Divi sites and wastes disk space and upload time.');
+        $this->guide_item("Disable Image Sizes", 'Stop specific image sizes from being generated on future uploads. Existing images are not affected; use a plugin like Regenerate Thumbnails if you need to clean up historical sizes.');
+        $this->guide_item("Remove DNS Prefetch", 'Removes the <code>&lt;link rel="dns-prefetch" href="//s.w.org"&gt;</code> hint added by WordPress to the document head.');
+        echo '</div>';
+
+        $this->section_label("Post Revisions");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("Limited (recommended)", 'Caps the number of revisions WordPress saves per post. 5 revisions is a reasonable default that preserves meaningful history without accumulating thousands of rows for frequently edited pages. This setting overrides any <code>WP_POST_REVISIONS</code> constant defined in <code>wp-config.php</code>.');
+        echo '</div>';
+      }
+    );
+
+    // ── Gravity Forms ─────────────────────────────────────────
+    $this->card(
+      "Gravity Forms",
+      "Divi compatibility fixes and automatic form page generation.",
+      function () {
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("Enable Compatibility Fixes", 'Prevents Divi\'s script optimization from deferring Gravity Forms scripts on pages that contain a form. Without this fix, GF forms display but throw a "gf_global is not defined" JavaScript error and submission fails.');
+        $this->guide_item("Detection Mode: Auto-detect", 'Scans each page\'s content for Gravity Forms shortcodes and Divi GF Styler modules and applies the fix only on those pages. Recommended for most sites.');
+        $this->guide_item("Detection Mode: Manual only", 'Applies the fix only to the page slugs listed in the Additional Pages field. Use this if auto-detect causes issues on a specific site or for precise control.');
+        $this->guide_item("Auto-Generate Form Page", 'When creating a new form, the "Add New Form" flyout includes an "Auto-Generate Form Page" checkbox. When checked, CDG Core automatically creates a published page under <code>/forms/</code> pre-loaded with a Divi 5 GF Styler module pointing at the new form. A "View Form Page" button is injected into the form editor toolbar so you can jump to the page immediately.');
+        echo '</div>';
+        echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Auto-generated form pages use the <code>cdg_form</code> custom post type. They are deleted (moved to Trash) automatically when the associated Gravity Forms form is deleted.</span></div>';
+      }
+    );
+
+    // ── Admin ─────────────────────────────────────────────────
+    $this->card(
+      "Admin",
+      "Branding, theme color, and custom CSS.",
+      function () {
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("Custom Footer", 'Replaces the default "Thank you for creating with WordPress" footer text with the CDG branding link. The text field supports basic HTML: links, <code>em</code>, and <code>strong</code>.');
+        $this->guide_item("Browser Theme Color", 'Outputs a <code>&lt;meta name="theme-color"&gt;</code> tag used by Chrome, Safari, and other mobile browsers to tint the address bar. Auto mode reads the accent color from Divi\'s theme settings. Custom mode allows a specific hex value. Disable if the theme outputs its own theme-color tag.');
+        $this->guide_item("Custom Admin CSS", 'Raw CSS injected via a <code>&lt;style&gt;</code> block in the <code>&lt;head&gt;</code> of every admin page. Useful for per-site admin UI tweaks without maintaining a separate admin stylesheet. A set of CDG default styles (rounded inputs, consistent borders, orange accent links) is applied by default.');
+        echo '</div>';
+      }
+    );
+
+    // ── Plugins ───────────────────────────────────────────────
+    $this->card(
+      "Plugin Visibility",
+      "Control which plugins non-administrator users can see.",
+      function () {
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("How it works", 'Checked plugins are hidden from the Plugins admin page for all users who do not have the <code>manage_options</code> capability (i.e., non-administrators). The plugins remain fully active — only their visibility in the list is affected.');
+        $this->guide_item("Common use", 'Hide maintenance, security, or developer plugins from client Editor accounts to keep the Plugins page uncluttered and reduce the risk of accidental deactivation.');
+        echo '</div>';
+        echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>CDG Core itself is an mu-plugin and does not appear in this list. Must-use plugins cannot be hidden or deactivated from the Plugins page regardless of this setting.</span></div>';
+      }
+    );
+
+    // ── Security Audit ────────────────────────────────────────
+    $this->card(
+      "Security Audit",
+      'A read-only diagnostic page available under <a class="cdg-guide-link" href="' . esc_url(admin_url('tools.php?page=cdg-security-audit')) . '">Tools &rsaquo; Security Audit</a>.',
+      function () {
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item("What it checks", 'WP Generator meta tag exposure, WP_DEBUG on production, debug.log public accessibility, user enumeration via the REST API, PHP execution in the uploads directory, and inactive administrator accounts (90-day threshold).');
+        $this->guide_item("Caching", 'Results are cached for 1 hour using a WordPress transient. Click Re-run Audit to force a fresh check immediately, or wait for the cache to expire.');
+        $this->guide_item("Login Tracking", 'CDG Core records a <code>cdg_last_login</code> timestamp on every successful login. This meta key is used by the inactive admins check. Accounts that have never logged in since the plugin was installed are flagged as unverified, not definitively inactive.');
+        $this->guide_item("HTTP checks", 'The debug.log, user enumeration, and PHP execution checks make outbound HTTP requests from the server to itself. SpinupWP firewall rules or a CDN in front of the site may cause these checks to report pass even when the vulnerability exists at the origin.');
+        echo '</div>';
+      }
+    );
+  }
+
+  /**
+   * Render a single guide item (label + description) for the Guide tab.
+   *
+   * @param string $label Plain-text label.
+   * @param string $desc  HTML description (wp_kses_post applied).
+   */
+  private function guide_item(string $label, string $desc): void
+  {
+    echo '<div>';
+    echo '<div class="cdg-guide-item-label">' . esc_html($label) . '</div>';
+    echo '<div class="cdg-guide-item-desc">' . wp_kses_post($desc) . '</div>';
+    echo '</div>';
   }
 
 
