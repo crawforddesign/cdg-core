@@ -295,6 +295,10 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
     // Plugin Visibility — always active; filter is a no-op when list is empty.
     new CDG_Core_Plugin_Visibility($this);
 
+    // Security Audit — instantiated outside is_admin() so the wp_login
+    // hook (login timestamp recording) fires on the login page as well.
+    new CDG_Core_Security_Audit($this);
+
     // SVG Support - initialize regardless of setting (class checks internally)
     new CDG_Core_SVG_Support($this);
 
