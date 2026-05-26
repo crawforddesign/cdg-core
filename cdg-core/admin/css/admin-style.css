@@ -5,33 +5,45 @@
 
 /* ── Variables ── */
 .cdg-v2 {
-  --cdg-surface:    #ffffff;
-  --cdg-muted:      #f4f4f5;
-  --cdg-muted-fg:   #71717a;
-  --cdg-border:     #e4e4e7;
-  --cdg-fg:         #09090b;
-  --cdg-fg-2:       #3f3f46;
-  --cdg-primary:    #18181b;
+  --cdg-surface: #ffffff;
+  --cdg-muted: #f4f4f5;
+  --cdg-muted-fg: #71717a;
+  --cdg-border: #e4e4e7;
+  --cdg-fg: #09090b;
+  --cdg-fg-2: #3f3f46;
+  --cdg-primary: #18181b;
   --cdg-primary-fg: #fafafa;
-  --cdg-ring:       rgba(0, 0, 0, 0.06);
-  --cdg-radius:     6px;
-  --cdg-radius-lg:  10px;
-  --cdg-sidebar-w:  200px;
+  --cdg-ring: rgba(0, 0, 0, 0.06);
+  --cdg-radius: 6px;
+  --cdg-radius-lg: 10px;
+  --cdg-sidebar-w: 200px;
 
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, ui-sans-serif, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto,
+    ui-sans-serif, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--cdg-fg);
 }
 
-.cdg-v2 * { box-sizing: border-box; }
-.cdg-v2 h1, .cdg-v2 h2, .cdg-v2 h3 { font-weight: 600; margin: 0; }
-.cdg-v2 a { text-decoration: none; }
+.cdg-v2 * {
+  box-sizing: border-box;
+}
+.cdg-v2 h1,
+.cdg-v2 h2,
+.cdg-v2 h3 {
+  font-weight: 600;
+  margin: 0;
+}
+.cdg-v2 a {
+  text-decoration: none;
+}
 .cdg-v2 input,
 .cdg-v2 select,
 .cdg-v2 textarea,
-.cdg-v2 button { font-family: inherit; font-size: 14px; }
-
+.cdg-v2 button {
+  font-family: inherit;
+  font-size: 14px;
+}
 
 /* ── Page Header ── */
 .cdg-page-header {
@@ -39,6 +51,7 @@
   align-items: center;
   justify-content: space-between;
   padding-bottom: 20px;
+  padding-top: 10px;
   margin-bottom: 24px;
   border-bottom: 1px solid var(--cdg-border);
 }
@@ -87,7 +100,6 @@
   display: inline-block;
 }
 
-
 /* ── Body layout ── */
 .cdg-body-layout {
   display: flex !important;
@@ -95,7 +107,6 @@
   align-items: flex-start;
   float: none !important; /* WP admin uses float layout; don't inherit it */
 }
-
 
 /* ── Sidebar ── */
 .cdg-sidebar {
@@ -151,8 +162,9 @@
   display: inline-block;
 }
 
-.cdg-nav-item.cdg-active svg { opacity: 1; }
-
+.cdg-nav-item.cdg-active svg {
+  opacity: 1;
+}
 
 /* ── Content column ── */
 .cdg-content {
@@ -162,7 +174,6 @@
   flex-direction: column;
   gap: 20px;
 }
-
 
 /* ── Cards ── */
 .cdg-card {
@@ -204,8 +215,9 @@
   border: 1px solid var(--cdg-border);
 }
 
-.cdg-card-body { padding: 0; }
-
+.cdg-card-body {
+  padding: 0;
+}
 
 /* ── Setting rows ── */
 .cdg-setting-row {
@@ -217,14 +229,19 @@
   border-bottom: 1px solid var(--cdg-border);
 }
 
-.cdg-setting-row:last-child { border-bottom: none; }
+.cdg-setting-row:last-child {
+  border-bottom: none;
+}
 
 .cdg-setting-row.cdg-indented {
   padding-left: 40px;
   background: #fafafa;
 }
 
-.cdg-setting-info { flex: 1; min-width: 0; }
+.cdg-setting-info {
+  flex: 1;
+  min-width: 0;
+}
 
 .cdg-setting-label {
   font-size: 13.5px;
@@ -248,7 +265,6 @@
   flex-shrink: 0;
 }
 
-
 /* ── Toggle switches ── */
 .cdg-switch {
   position: relative;
@@ -262,12 +278,12 @@
 /* WP admin 6.x force-styles checkboxes — !important needed to win */
 .cdg-switch input[type="checkbox"] {
   opacity: 0 !important;
-  width:   0 !important;
-  height:  0 !important;
+  width: 0 !important;
+  height: 0 !important;
   position: absolute !important;
-  margin:  0 !important;
+  margin: 0 !important;
   padding: 0 !important;
-  border:  none !important;
+  border: none !important;
   background: none !important;
   box-shadow: none !important;
   appearance: none !important;
@@ -308,7 +324,6 @@
   outline-offset: 2px;
 }
 
-
 /* ── Radio cards ── */
 .cdg-radio-group {
   display: flex;
@@ -332,12 +347,12 @@
 
 .cdg-radio-card input[type="radio"] {
   position: absolute !important;
-  opacity:  0 !important;
-  width:    0 !important;
-  height:   0 !important;
-  margin:   0 !important;
-  padding:  0 !important;
-  border:   none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
   background: none !important;
   box-shadow: none !important;
   appearance: none !important;
@@ -412,7 +427,6 @@
   border-color: var(--cdg-primary) !important;
 }
 
-
 /* ── Checkbox grid (head cleanup, dashboard widgets) ── */
 .cdg-check-grid {
   display: grid;
@@ -443,12 +457,12 @@
 /* Visually hide the native checkbox; WP admin 6.x needs !important to override */
 .cdg-check-item input[type="checkbox"] {
   position: absolute !important;
-  opacity:  0 !important;
-  width:    0 !important;
-  height:   0 !important;
-  margin:   0 !important;
-  padding:  0 !important;
-  border:   none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
   background: none !important;
   box-shadow: none !important;
   appearance: none !important;
@@ -499,7 +513,6 @@
   margin-left: 4px;
 }
 
-
 /* ── Sub-section labels (inside card body) ── */
 .cdg-sub-section {
   padding: 9px 20px;
@@ -520,8 +533,9 @@
   letter-spacing: 0;
 }
 
-.cdg-card-body > .cdg-sub-section:first-child { border-top: none; }
-
+.cdg-card-body > .cdg-sub-section:first-child {
+  border-top: none;
+}
 
 /* ── Form inputs ── */
 .cdg-input {
@@ -545,8 +559,12 @@
   box-shadow: 0 0 0 2px var(--cdg-ring);
 }
 
-.cdg-input-sm  { width: 80px; }
-.cdg-input-w100 { width: 100px; }
+.cdg-input-sm {
+  width: 80px;
+}
+.cdg-input-w100 {
+  width: 100px;
+}
 
 textarea.cdg-input {
   height: auto;
@@ -561,8 +579,9 @@ textarea.cdg-input {
 }
 
 /* Full-width textarea section (admin CSS) */
-.cdg-textarea-wrap { padding: 16px 20px; }
-
+.cdg-textarea-wrap {
+  padding: 16px 20px;
+}
 
 /* ── Select ── */
 .cdg-select {
@@ -591,7 +610,6 @@ textarea.cdg-input {
   box-shadow: 0 0 0 2px var(--cdg-ring);
 }
 
-
 /* ── Color swatch row ── */
 .cdg-color-row {
   display: flex;
@@ -605,14 +623,13 @@ textarea.cdg-input {
   border-radius: 5px;
   border: 1px solid var(--cdg-border);
   flex-shrink: 0;
-  background-color: #F34F27;
+  background-color: #f34f27;
 }
 
 .cdg-color-row .cdg-input {
   width: 110px;
   display: inline-block;
 }
-
 
 /* ── Buttons ── */
 .cdg-btn {
@@ -637,8 +654,9 @@ textarea.cdg-input {
   color: var(--cdg-primary-fg) !important;
 }
 
-.cdg-btn-primary:hover { opacity: 0.85; }
-
+.cdg-btn-primary:hover {
+  opacity: 0.85;
+}
 
 /* ── Notices ── */
 .cdg-notice {
@@ -660,9 +678,16 @@ textarea.cdg-input {
   display: inline-block;
 }
 
-.cdg-notice-info  { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-.cdg-notice-warn  { background: #fffbeb; border-color: #fde68a; color: #92400e; }
-
+.cdg-notice-info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+.cdg-notice-warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
 
 /* ── Empty state ── */
 .cdg-empty {
@@ -671,7 +696,6 @@ textarea.cdg-input {
   color: var(--cdg-muted-fg);
   font-style: italic;
 }
-
 
 /* ── Sidebar save button ── */
 .cdg-sidebar-save {
@@ -685,13 +709,11 @@ textarea.cdg-input {
   justify-content: center;
 }
 
-
 /* ── Conditional disabled state ── */
 .cdg-disabled {
   opacity: 0.4;
   pointer-events: none;
 }
-
 
 /* ── Guide tab ── */
 .cdg-guide-body {
@@ -772,10 +794,11 @@ textarea.cdg-input {
   display: none;
 }
 
-
 /* ── Responsive ── */
 @media (max-width: 782px) {
-  .cdg-body-layout { flex-direction: column; }
+  .cdg-body-layout {
+    flex-direction: column;
+  }
 
   .cdg-sidebar {
     width: 100%;
@@ -784,7 +807,9 @@ textarea.cdg-input {
     position: static;
   }
 
-  .cdg-sidebar-label { display: none; }
+  .cdg-sidebar-label {
+    display: none;
+  }
 
   .cdg-sidebar-save {
     width: 100%;
@@ -792,12 +817,17 @@ textarea.cdg-input {
     padding-top: 8px;
   }
 
-  .cdg-check-grid { grid-template-columns: 1fr; }
+  .cdg-check-grid {
+    grid-template-columns: 1fr;
+  }
 
   .cdg-setting-row {
     flex-direction: column;
     gap: 12px;
   }
 
-  .cdg-radio-group { flex-direction: column; width: 100%; }
+  .cdg-radio-group {
+    flex-direction: column;
+    width: 100%;
+  }
 }
