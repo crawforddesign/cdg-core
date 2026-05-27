@@ -28,6 +28,7 @@
     // Feature toggles → sub-settings groups
     bindToggle("enable_documentation", "cdg-doc-sub-settings");
     bindToggle("enable_cpt_widgets",   "cdg-cpt-sub-settings");
+    bindToggle("enable_custom_login",  "cdg-login-sub-settings");
 
     // ── Post revisions: disable limit input unless "limited" is selected ──
     var revisionInputs = document.querySelectorAll('[name="post_revisions_mode"]');

@@ -229,6 +229,16 @@ class CDG_Core_Admin
         break;
 
       case "admin":
+        $s["enable_custom_login"] = !empty($input["enable_custom_login"]);
+        $s["login_generic_errors"] = !empty($input["login_generic_errors"]);
+        $s["login_hide_backtoblog"] = !empty($input["login_hide_backtoblog"]);
+        $s["login_hide_register_link"] = !empty(
+          $input["login_hide_register_link"]
+        );
+        $s["login_hide_language_switcher"] = !empty(
+          $input["login_hide_language_switcher"]
+        );
+
         $s["enable_admin_branding"] = !empty($input["enable_admin_branding"]);
         $s["admin_footer_text"] = wp_kses_post(
           $input["admin_footer_text"] ?? ""
@@ -1162,6 +1172,61 @@ class CDG_Core_Admin
   private function tab_admin(array $s): void
   {
     $this->card(
+      "Login Page",
+      "Customize the WordPress login page with site branding and a cleaner experience.",
+      function () use ($s) {
+        $this->row(
+          "Enable Custom Login",
+          "Replaces the WordPress logo with the site logo, applies the site accent color, and styles the form as a card.",
+          $this->sw("enable_custom_login", $s["enable_custom_login"])
+        );
+
+        $sub_class = !$s["enable_custom_login"] ? "cdg-disabled" : "";
+        echo '<div id="cdg-login-sub-settings" class="' .
+          esc_attr($sub_class) .
+          '">';
+
+        $this->row(
+          "Hide &#8220;Back to Site&#8221; Link",
+          "Removes the <code>#backtoblog</code> link beneath the login form.",
+          $this->sw(
+            "login_hide_backtoblog",
+            $s["login_hide_backtoblog"]
+          ),
+          true
+        );
+
+        $this->row(
+          "Hide Register Link",
+          "Hides the Register link. Only relevant when user registration is enabled in Settings.",
+          $this->sw(
+            "login_hide_register_link",
+            $s["login_hide_register_link"]
+          ),
+          true
+        );
+
+        $this->row(
+          "Hide Language Switcher",
+          "Removes the language dropdown added in WordPress 5.9+.",
+          $this->sw(
+            "login_hide_language_switcher",
+            $s["login_hide_language_switcher"]
+          ),
+          true
+        );
+
+        echo "</div>";
+
+        $this->row(
+          "Generic Error Messages",
+          'Replaces specific error messages like &#8220;The password you entered for <em>username</em> is incorrect&#8221; with a generic message to prevent user enumeration.',
+          $this->sw("login_generic_errors", $s["login_generic_errors"])
+        );
+      }
+    );
+
+    $this->card(
       "Admin Branding",
       "Customize the WordPress admin footer with CDG branding.",
       function () use ($s) {
@@ -1538,8 +1603,27 @@ class CDG_Core_Admin
     );
 
     // ── Admin ─────────────────────────────────────────────────
-    $this->card("Admin", "Branding, theme color, and custom CSS.", function () {
+    $this->card(
+      "Admin",
+      "Login page branding, admin footer, theme color, and custom CSS.",
+      function () {
       echo '<div class="cdg-guide-body cdg-guide-group">';
+
+      $this->section_label("Login Page");
+      $this->guide_item(
+        "Enable Custom Login",
+        "Applies site branding to the WordPress login page: replaces the WordPress logo with the site&#8217;s custom logo (set via Appearance &rsaquo; Customize), styles the form as a card on a light-gray background, and applies the site&#8217;s accent color (from the Browser Theme Color setting) to the submit button and input focus rings. If no custom logo is set, the layout improvements still apply but the WordPress logo remains."
+      );
+      $this->guide_item(
+        "Generic Error Messages",
+        'Replaces WordPress&#8217;s specific login errors (&#8220;The password you entered for <em>username</em> is incorrect&#8221;) with a single generic message. This prevents attackers from confirming valid usernames through login-form enumeration. Operates independently of the custom login toggle so it can be enabled on its own.'
+      );
+      $this->guide_item(
+        "Hide Back to Site / Register / Language Switcher",
+        "Removes links and UI elements below the login form that are rarely needed on client sites. The Register link only appears when user registration is enabled in Settings &rsaquo; General, so hiding it here is a belt-and-suspenders measure. The language switcher (added in WP 5.9) is hidden by default as most single-language sites do not need it."
+      );
+
+      $this->section_label("Admin Footer &amp; CSS");
       $this->guide_item(
         "Custom Footer",
         'Replaces the default "Thank you for creating with WordPress" footer text with the CDG branding link. The text field supports basic HTML: links, <code>em</code>, and <code>strong</code>.'

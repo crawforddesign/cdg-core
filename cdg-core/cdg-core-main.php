@@ -151,6 +151,13 @@ final class CDG_Core
     // Plugin Visibility
     "hidden_plugins" => [],
 
+    // Login Page
+    "enable_custom_login" => true,
+    "login_generic_errors" => true,
+    "login_hide_backtoblog" => true,
+    "login_hide_register_link" => false,
+    "login_hide_language_switcher" => true,
+
     // Admin
     "admin_footer_text" =>
       'Website by <a href="https://crawforddesigngroup.com" target="_blank">Crawford Design Group</a>',
@@ -307,6 +314,9 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
 
     // Lottie Support - initialize regardless of setting (class checks internally)
     new CDG_Core_Lottie_Support($this);
+
+    // Login Page
+    new CDG_Core_Login($this);
 
     // Admin
     if (is_admin()) {
