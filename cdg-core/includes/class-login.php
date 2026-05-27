@@ -130,9 +130,9 @@ class CDG_Core_Login
       background-color: #f0f0f1;
     }
     body.login #login {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+      background: var(--cdg-surface);
+      border: 1px solid var(--cdg-border);
+      border-radius: var(--cdg-radius-lg);
       padding: 32px;
       margin-top: 80px;
       width: 320px;
