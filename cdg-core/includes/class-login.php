@@ -39,13 +39,6 @@ class CDG_Core_Login
 
   public function enqueue_styles(): void
   {
-    $admin_css_path = CDG_CORE_DIR . "admin/css/admin-style.css";
-    if (file_exists($admin_css_path)) {
-      wp_register_style("cdg-core-admin", false);
-      wp_enqueue_style("cdg-core-admin");
-      wp_add_inline_style("cdg-core-admin", file_get_contents($admin_css_path)); // phpcs:ignore WordPress.WP.AlternativeFunctions
-    }
-
     $css = $this->build_css();
     wp_register_style("cdg-login", false);
     wp_enqueue_style("cdg-login");
@@ -133,7 +126,13 @@ class CDG_Core_Login
       $hide_css .= "#nav { display: none; }";
     }
 
-    return "body.login {
+    return ":root {
+      --cdg-surface: #ffffff;
+      --cdg-border: #e4e4e7;
+      --cdg-radius: 6px;
+      --cdg-radius-lg: 10px;
+    }
+    body.login {
       background-color: #f0f0f1;
     }
     body.login #login {
