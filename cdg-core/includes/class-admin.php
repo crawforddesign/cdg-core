@@ -220,7 +220,7 @@ class CDG_Core_Admin
         $all_plugin_files = array_keys(
           CDG_Core_Plugin_Visibility::get_all_plugins()
         );
-        $per_user = [];
+        $per_user_plugins = [];
         foreach ((array) ($input["hidden_plugins_per_user"] ?? []) as $uid => $files) {
           $uid = absint($uid);
           if (!$uid || !get_user_by("id", $uid)) {
@@ -233,10 +233,32 @@ class CDG_Core_Admin
             )
           );
           if (!empty($sanitized)) {
-            $per_user[$uid] = $sanitized;
+            $per_user_plugins[$uid] = $sanitized;
           }
         }
-        $s["hidden_plugins_per_user"] = $per_user;
+        $s["hidden_plugins_per_user"] = $per_user_plugins;
+
+        // Validate each user ID and menu slug against captured menu items.
+        $available_menu_slugs = array_keys(
+          CDG_Core_Admin_Menu::get_available_menu_items()
+        );
+        $per_user_menus = [];
+        foreach ((array) ($input["hidden_menu_items_per_user"] ?? []) as $uid => $slugs) {
+          $uid = absint($uid);
+          if (!$uid || !get_user_by("id", $uid)) {
+            continue;
+          }
+          $sanitized = array_values(
+            array_intersect(
+              array_map("sanitize_text_field", (array) $slugs),
+              $available_menu_slugs
+            )
+          );
+          if (!empty($sanitized)) {
+            $per_user_menus[$uid] = $sanitized;
+          }
+        }
+        $s["hidden_menu_items_per_user"] = $per_user_menus;
         break;
 
       case "admin":
@@ -1355,12 +1377,17 @@ class CDG_Core_Admin
 
   private function tab_plugins(array $s): void
   {
+    $users = get_users([
+      "orderby" => "display_name",
+      "order"   => "ASC",
+    ]);
+
     $this->card(
-      "Plugin Visibility",
-      "Hide specific plugins from the Plugins page on a per-user basis.",
-      function () use ($s) {
+      "Plugin Page Visibility",
+      "Hide specific plugins from the Plugins list page on a per-user basis.",
+      function () use ($s, $users) {
         $all_plugins = CDG_Core_Plugin_Visibility::get_all_plugins();
-        $per_user = $s["hidden_plugins_per_user"] ?? [];
+        $per_user    = $s["hidden_plugins_per_user"] ?? [];
 
         if (empty($all_plugins)) {
           echo '<div class="cdg-empty">' .
@@ -1369,35 +1396,23 @@ class CDG_Core_Admin
           return;
         }
 
-        // Sort alphabetically by plugin name.
         uasort(
           $all_plugins,
           fn($a, $b) => strcmp($a["Name"] ?? "", $b["Name"] ?? "")
         );
 
-        $users = get_users([
-          "orderby" => "display_name",
-          "order" => "ASC",
-        ]);
-
         if (empty($users)) {
           echo '<div class="cdg-empty">' .
-            esc_html__(
-              "No non-administrator users found.",
-              "cdg-core"
-            ) .
+            esc_html__("No users found.", "cdg-core") .
             "</div>";
           return;
         }
 
         foreach ($users as $user) {
-          $hidden = $per_user[$user->ID] ?? [];
+          $hidden     = $per_user[$user->ID] ?? [];
           $role_names = array_values($user->roles);
           $role_label = !empty($role_names) ? ucfirst($role_names[0]) : "";
-          $this->section_label(
-            $user->display_name,
-            $role_label
-          );
+          $this->section_label($user->display_name, $role_label);
           echo '<div class="cdg-check-grid">';
           foreach ($all_plugins as $plugin_file => $plugin_data) {
             $name = $plugin_data["Name"] ?? $plugin_file;
@@ -1412,6 +1427,61 @@ class CDG_Core_Admin
               '<span class="cdg-check-box"></span>' .
               "<span>" .
               esc_html($name) .
+              "</span>" .
+              "</label>";
+          }
+          echo "</div>";
+        }
+      }
+    );
+
+    $this->card(
+      "Admin Sidebar Menu",
+      "Hide specific admin sidebar menu items on a per-user basis. Visit the dashboard once after activating new plugins to populate this list.",
+      function () use ($s, $users) {
+        $menu_items = CDG_Core_Admin_Menu::get_available_menu_items();
+        $per_user   = $s["hidden_menu_items_per_user"] ?? [];
+
+        if (empty($menu_items)) {
+          echo '<div class="cdg-empty">' .
+            esc_html__(
+              "No menu items detected yet. Visit the Dashboard once to populate this list.",
+              "cdg-core"
+            ) .
+            "</div>";
+          return;
+        }
+
+        uasort(
+          $menu_items,
+          fn($a, $b) => strcmp($a["title"] ?? "", $b["title"] ?? "")
+        );
+
+        if (empty($users)) {
+          echo '<div class="cdg-empty">' .
+            esc_html__("No users found.", "cdg-core") .
+            "</div>";
+          return;
+        }
+
+        foreach ($users as $user) {
+          $hidden     = $per_user[$user->ID] ?? [];
+          $role_names = array_values($user->roles);
+          $role_label = !empty($role_names) ? ucfirst($role_names[0]) : "";
+          $this->section_label($user->display_name, $role_label);
+          echo '<div class="cdg-check-grid">';
+          foreach ($menu_items as $item) {
+            echo '<label class="cdg-check-item">' .
+              '<input type="checkbox" name="hidden_menu_items_per_user[' .
+              esc_attr((string) $user->ID) .
+              '][]" value="' .
+              esc_attr($item["slug"]) .
+              '"' .
+              (in_array($item["slug"], $hidden, true) ? " checked" : "") .
+              ">" .
+              '<span class="cdg-check-box"></span>' .
+              "<span>" .
+              esc_html($item["title"]) .
               "</span>" .
               "</label>";
           }
@@ -1715,19 +1785,23 @@ class CDG_Core_Admin
     // ── Plugins ───────────────────────────────────────────────
     $this->card(
       "Plugin Visibility",
-      "Control which plugins specific users can see.",
+      "Control which plugins and sidebar menu items specific users can see.",
       function () {
         echo '<div class="cdg-guide-body cdg-guide-group">';
         $this->guide_item(
-          "How it works",
-          "Plugins are hidden per user. Every WordPress user gets their own section — check the plugins you want to hide from that person. The plugins remain fully active; only their visibility in the list is affected."
+          "Plugin Page Visibility",
+          "Checked plugins are hidden from the Plugins admin page for that user. The plugins remain fully active — only their row in the list is removed."
+        );
+        $this->guide_item(
+          "Admin Sidebar Menu",
+          "Checked menu items are removed from the left admin sidebar for that user. The underlying pages are still accessible by direct URL — this only hides the navigation entry."
         );
         $this->guide_item(
           "Common use",
-          "Hide maintenance, security, or developer plugins from specific client accounts to keep the Plugins page uncluttered and reduce the risk of accidental deactivation."
+          "Hide maintenance, security, or developer plugins from specific client accounts to keep the dashboard uncluttered and reduce the risk of accidental deactivation."
         );
         echo "</div>";
-        echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>CDG Core itself is an mu-plugin and does not appear in this list. Must-use plugins cannot be hidden or deactivated from the Plugins page regardless of this setting.</span></div>';
+        echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>CDG Core itself is an mu-plugin and does not appear in the Plugin Page Visibility list. The Admin Sidebar list is populated on your first dashboard visit after activating a plugin.</span></div>';
       }
     );
 

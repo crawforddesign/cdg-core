@@ -149,7 +149,8 @@ final class CDG_Core
     "gf_manual_pages" => [],
 
     // Plugin Visibility
-    "hidden_plugins_per_user" => [],
+    "hidden_plugins_per_user"    => [],
+    "hidden_menu_items_per_user" => [],
 
     // Login Page
     "login_logo_id" => 0,
@@ -302,6 +303,9 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
 
     // Plugin Visibility — always active; filter is a no-op when list is empty.
     new CDG_Core_Plugin_Visibility($this);
+
+    // Admin Menu Visibility — always active; removal is a no-op when list is empty.
+    new CDG_Core_Admin_Menu($this);
 
     // Security Audit — instantiated outside is_admin() so the wp_login
     // hook (login timestamp recording) fires on the login page as well.
