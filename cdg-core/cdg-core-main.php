@@ -149,7 +149,7 @@ final class CDG_Core
     "gf_manual_pages" => [],
 
     // Plugin Visibility
-    "hidden_plugins" => [],
+    "hidden_plugins_per_user" => [],
 
     // Login Page
     "login_logo_id" => 0,

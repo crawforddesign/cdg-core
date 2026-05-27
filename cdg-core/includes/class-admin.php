@@ -216,18 +216,27 @@ class CDG_Core_Admin
         break;
 
       case "plugins":
-        // Validate submitted plugin files against the actual installed plugin list
-        // so arbitrary file paths cannot be stored.
+        // Validate each user ID and plugin file path against real data.
         $all_plugin_files = array_keys(
           CDG_Core_Plugin_Visibility::get_all_plugins()
         );
-        $submitted = array_map(
-          "sanitize_text_field",
-          (array) ($input["hidden_plugins"] ?? [])
-        );
-        $s["hidden_plugins"] = array_values(
-          array_intersect($submitted, $all_plugin_files)
-        );
+        $per_user = [];
+        foreach ((array) ($input["hidden_plugins_per_user"] ?? []) as $uid => $files) {
+          $uid = absint($uid);
+          if (!$uid || !get_user_by("id", $uid)) {
+            continue;
+          }
+          $sanitized = array_values(
+            array_intersect(
+              array_map("sanitize_text_field", (array) $files),
+              $all_plugin_files
+            )
+          );
+          if (!empty($sanitized)) {
+            $per_user[$uid] = $sanitized;
+          }
+        }
+        $s["hidden_plugins_per_user"] = $per_user;
         break;
 
       case "admin":
@@ -1348,10 +1357,10 @@ class CDG_Core_Admin
   {
     $this->card(
       "Plugin Visibility",
-      "Hide specific plugins from the Plugins page for all non-administrator users. Administrators always see every plugin regardless of this setting.",
+      "Hide specific plugins from the Plugins page on a per-user basis. Administrators always see every plugin regardless of this setting.",
       function () use ($s) {
         $all_plugins = CDG_Core_Plugin_Visibility::get_all_plugins();
-        $hidden = $s["hidden_plugins"] ?? [];
+        $per_user = $s["hidden_plugins_per_user"] ?? [];
 
         if (empty($all_plugins)) {
           echo '<div class="cdg-empty">' .
@@ -1366,22 +1375,49 @@ class CDG_Core_Admin
           fn($a, $b) => strcmp($a["Name"] ?? "", $b["Name"] ?? "")
         );
 
-        echo '<div class="cdg-check-grid">';
-        foreach ($all_plugins as $plugin_file => $plugin_data) {
-          $name = $plugin_data["Name"] ?? $plugin_file;
-          echo '<label class="cdg-check-item">' .
-            '<input type="checkbox" name="hidden_plugins[]" value="' .
-            esc_attr($plugin_file) .
-            '"' .
-            (in_array($plugin_file, $hidden, true) ? " checked" : "") .
-            ">" .
-            '<span class="cdg-check-box"></span>' .
-            "<span>" .
-            esc_html($name) .
-            "</span>" .
-            "</label>";
+        $users = get_users([
+          "role__not_in" => ["administrator"],
+          "orderby" => "display_name",
+          "order" => "ASC",
+        ]);
+
+        if (empty($users)) {
+          echo '<div class="cdg-empty">' .
+            esc_html__(
+              "No non-administrator users found.",
+              "cdg-core"
+            ) .
+            "</div>";
+          return;
         }
-        echo "</div>";
+
+        foreach ($users as $user) {
+          $hidden = $per_user[$user->ID] ?? [];
+          $role_names = array_values($user->roles);
+          $role_label = !empty($role_names) ? ucfirst($role_names[0]) : "";
+          $this->section_label(
+            $user->display_name,
+            $role_label
+          );
+          echo '<div class="cdg-check-grid">';
+          foreach ($all_plugins as $plugin_file => $plugin_data) {
+            $name = $plugin_data["Name"] ?? $plugin_file;
+            echo '<label class="cdg-check-item">' .
+              '<input type="checkbox" name="hidden_plugins_per_user[' .
+              esc_attr((string) $user->ID) .
+              '][]" value="' .
+              esc_attr($plugin_file) .
+              '"' .
+              (in_array($plugin_file, $hidden, true) ? " checked" : "") .
+              ">" .
+              '<span class="cdg-check-box"></span>' .
+              "<span>" .
+              esc_html($name) .
+              "</span>" .
+              "</label>";
+          }
+          echo "</div>";
+        }
       }
     );
   }
@@ -1680,16 +1716,16 @@ class CDG_Core_Admin
     // ── Plugins ───────────────────────────────────────────────
     $this->card(
       "Plugin Visibility",
-      "Control which plugins non-administrator users can see.",
+      "Control which plugins specific users can see.",
       function () {
         echo '<div class="cdg-guide-body cdg-guide-group">';
         $this->guide_item(
           "How it works",
-          "Checked plugins are hidden from the Plugins admin page for all users who do not have the <code>manage_options</code> capability (i.e., non-administrators). The plugins remain fully active — only their visibility in the list is affected."
+          "Plugins are hidden per user. Each non-administrator user gets their own column — check the plugins you want to hide from that person. The plugins remain fully active; only their visibility in the list is affected. Administrators always see every plugin regardless of this setting."
         );
         $this->guide_item(
           "Common use",
-          "Hide maintenance, security, or developer plugins from client Editor accounts to keep the Plugins page uncluttered and reduce the risk of accidental deactivation."
+          "Hide maintenance, security, or developer plugins from specific client accounts to keep the Plugins page uncluttered and reduce the risk of accidental deactivation."
         );
         echo "</div>";
         echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>CDG Core itself is an mu-plugin and does not appear in this list. Must-use plugins cannot be hidden or deactivated from the Plugins page regardless of this setting.</span></div>';
