@@ -46,6 +46,8 @@ class CDG_Core_Admin
     $css_path = CDG_CORE_DIR . "admin/css/admin-style.css";
     $js_path = CDG_CORE_DIR . "admin/js/admin-script.js";
 
+    wp_enqueue_media();
+
     if (file_exists($css_path)) {
       // Register with src=false so WP outputs only the inline <style>, no <link>.
       wp_register_style("cdg-core-admin", false);
@@ -229,6 +231,7 @@ class CDG_Core_Admin
         break;
 
       case "admin":
+        $s["login_logo_id"] = absint($input["login_logo_id"] ?? 0);
         $s["enable_custom_login"] = !empty($input["enable_custom_login"]);
         $s["login_generic_errors"] = !empty($input["login_generic_errors"]);
         $s["login_hide_backtoblog"] = !empty($input["login_hide_backtoblog"]);
@@ -1185,6 +1188,41 @@ class CDG_Core_Admin
         echo '<div id="cdg-login-sub-settings" class="' .
           esc_attr($sub_class) .
           '">';
+
+        // Logo upload
+        $logo_id = absint($s["login_logo_id"] ?? 0);
+        $logo_src = $logo_id
+          ? wp_get_attachment_image_url($logo_id, "thumbnail")
+          : "";
+
+        $logo_control =
+          '<div class="cdg-media-picker">' .
+          '<input type="hidden" name="login_logo_id" id="cdg-login-logo-id" value="' .
+          esc_attr($logo_id ?: "") .
+          '">' .
+          '<div class="cdg-media-preview" id="cdg-login-logo-preview"' .
+          ($logo_src ? "" : ' style="display:none;"') .
+          ">" .
+          '<img id="cdg-login-logo-img" src="' .
+          esc_url($logo_src) .
+          '" alt="">' .
+          "</div>" .
+          '<div class="cdg-media-btns">' .
+          '<button type="button" class="cdg-btn cdg-btn-secondary" id="cdg-login-logo-upload">' .
+          esc_html($logo_id ? "Change Logo" : "Select Logo") .
+          "</button>" .
+          '<button type="button" class="cdg-btn cdg-btn-link" id="cdg-login-logo-remove"' .
+          ($logo_id ? "" : ' style="display:none;"') .
+          ">Remove</button>" .
+          "</div>" .
+          "</div>";
+
+        $this->row(
+          "Login Logo",
+          "Displayed in place of the WordPress logo on the login page. Leave empty to use the site&#8217;s Customizer logo, or the WordPress logo if none is set.",
+          $logo_control,
+          true
+        );
 
         $this->row(
           "Hide &#8220;Back to Site&#8221; Link",

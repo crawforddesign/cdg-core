@@ -658,6 +658,58 @@ textarea.cdg-input {
   opacity: 0.85;
 }
 
+.cdg-btn-secondary {
+  background: var(--cdg-surface);
+  color: var(--cdg-fg);
+  border: 1px solid var(--cdg-border) !important;
+}
+
+.cdg-btn-secondary:hover {
+  background: var(--cdg-muted);
+}
+
+.cdg-btn-link {
+  background: transparent;
+  color: var(--cdg-muted-fg);
+  padding: 0 8px;
+}
+
+.cdg-btn-link:hover {
+  color: #b91c1c;
+}
+
+/* ── Media picker ── */
+.cdg-media-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cdg-media-preview {
+  width: 160px;
+  height: 60px;
+  border: 1px solid var(--cdg-border);
+  border-radius: var(--cdg-radius);
+  overflow: hidden;
+  background: var(--cdg-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cdg-media-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.cdg-media-btns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* ── Notices ── */
 .cdg-notice {
   display: flex;

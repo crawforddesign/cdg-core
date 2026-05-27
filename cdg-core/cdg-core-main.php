@@ -152,6 +152,7 @@ final class CDG_Core
     "hidden_plugins" => [],
 
     // Login Page
+    "login_logo_id" => 0,
     "enable_custom_login" => true,
     "login_generic_errors" => true,
     "login_hide_backtoblog" => true,
@@ -444,31 +445,76 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
   /**
    * Output theme-color meta tag
    *
-   * Supports auto-detection from Divi accent color or a custom hex value.
-   *
    * @return void
    */
   public function output_theme_color_meta(): void
   {
-    $mode = $this->get_setting("theme_color_mode");
-    $color = "";
+    $color = $this->resolve_accent_color();
 
-    if ($mode === "custom") {
-      $color = $this->get_setting("theme_color_hex");
-    } elseif ($mode === "auto") {
-      // Try Divi accent color
-      $et_accent = get_option("et_divi");
-      if (is_array($et_accent) && !empty($et_accent["accent_color"])) {
-        $color = $et_accent["accent_color"];
-      }
-    }
-
-    if (!empty($color) && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $color)) {
+    if ($color) {
       printf(
         '<meta name="theme-color" content="%s">' . "\n",
         esc_attr($color)
       );
     }
+  }
+
+  /**
+   * Resolve the site accent color from plugin settings.
+   *
+   * Returns a validated hex string (with #) or empty string if unavailable.
+   * Used by both the theme-color meta tag and the login page styling.
+   *
+   * @return string
+   */
+  public function resolve_accent_color(): string
+  {
+    $mode = $this->get_setting("theme_color_mode");
+
+    if ($mode === "custom") {
+      return $this->normalize_hex((string) $this->get_setting("theme_color_hex"));
+    }
+
+    if ($mode === "auto") {
+      $et_divi = get_option("et_divi");
+      if (is_array($et_divi) && !empty($et_divi["accent_color"])) {
+        $normalized = $this->normalize_hex((string) $et_divi["accent_color"]);
+        if ($normalized) {
+          return $normalized;
+        }
+      }
+    }
+
+    return "";
+  }
+
+  /**
+   * Normalize a color value to a validated 6-digit hex string with # prefix.
+   *
+   * Handles values stored without #, with extra whitespace, or in 3-digit
+   * shorthand. Returns empty string if the value is not a valid hex color.
+   *
+   * @param string $hex Raw color value
+   * @return string
+   */
+  private function normalize_hex(string $hex): string
+  {
+    $hex = trim($hex);
+
+    if (empty($hex)) {
+      return "";
+    }
+
+    if ($hex[0] !== "#") {
+      $hex = "#" . $hex;
+    }
+
+    // Expand 3-digit shorthand (#abc → #aabbcc)
+    if (preg_match('/^#([A-Fa-f0-9]{3})$/', $hex, $m)) {
+      $hex = "#" . $m[1][0] . $m[1][0] . $m[1][1] . $m[1][1] . $m[1][2] . $m[1][2];
+    }
+
+    return preg_match('/^#[A-Fa-f0-9]{6}$/', $hex) ? $hex : "";
   }
 }
 

@@ -178,39 +178,24 @@ class CDG_Core_Login
 
   private function get_logo_url(): string
   {
-    $logo_id = get_theme_mod("custom_logo");
+    // Dedicated login logo takes priority
+    $logo_id = absint($this->plugin->get_setting("login_logo_id"));
+
+    // Fall back to the site's Customizer logo
+    if (!$logo_id) {
+      $logo_id = (int) get_theme_mod("custom_logo");
+    }
 
     if (!$logo_id) {
       return "";
     }
 
-    return wp_get_attachment_image_url((int) $logo_id, "full") ?: "";
+    return wp_get_attachment_image_url($logo_id, "full") ?: "";
   }
 
   private function resolve_accent_color(): string
   {
-    $mode = $this->plugin->get_setting("theme_color_mode");
-
-    if ($mode === "custom") {
-      $hex = $this->plugin->get_setting("theme_color_hex");
-      if (preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $hex)) {
-        return $hex;
-      }
-    } elseif ($mode === "auto") {
-      $et_divi = get_option("et_divi");
-      if (
-        is_array($et_divi) &&
-        !empty($et_divi["accent_color"]) &&
-        preg_match(
-          '/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/',
-          $et_divi["accent_color"]
-        )
-      ) {
-        return $et_divi["accent_color"];
-      }
-    }
-
-    return "";
+    return $this->plugin->resolve_accent_color();
   }
 
   private function darken_hex(string $hex, int $percent): string

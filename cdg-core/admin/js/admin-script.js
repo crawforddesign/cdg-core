@@ -56,6 +56,65 @@
       syncColorMode();
     }
 
+    // ── Login logo media picker ──
+    var logoUploadBtn = document.getElementById("cdg-login-logo-upload");
+    if (logoUploadBtn && window.wp && wp.media) {
+      var loginMediaFrame;
+
+      logoUploadBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        if (loginMediaFrame) {
+          loginMediaFrame.open();
+          return;
+        }
+
+        loginMediaFrame = wp.media({
+          title: "Select Login Logo",
+          button: { text: "Use this image" },
+          multiple: false,
+          library: { type: "image" },
+        });
+
+        loginMediaFrame.on("select", function () {
+          var attachment = loginMediaFrame
+            .state()
+            .get("selection")
+            .first()
+            .toJSON();
+
+          document.getElementById("cdg-login-logo-id").value = attachment.id;
+
+          var img = document.getElementById("cdg-login-logo-img");
+          if (img) {
+            img.src = attachment.url;
+          }
+
+          var preview = document.getElementById("cdg-login-logo-preview");
+          if (preview) preview.style.display = "block";
+
+          logoUploadBtn.textContent = "Change Logo";
+
+          var removeBtn = document.getElementById("cdg-login-logo-remove");
+          if (removeBtn) removeBtn.style.display = "inline-flex";
+        });
+
+        loginMediaFrame.open();
+      });
+
+      var logoRemoveBtn = document.getElementById("cdg-login-logo-remove");
+      if (logoRemoveBtn) {
+        logoRemoveBtn.addEventListener("click", function (e) {
+          e.preventDefault();
+          document.getElementById("cdg-login-logo-id").value = "";
+          var preview = document.getElementById("cdg-login-logo-preview");
+          if (preview) preview.style.display = "none";
+          logoUploadBtn.textContent = "Select Logo";
+          this.style.display = "none";
+        });
+      }
+    }
+
     // ── Color hex input → swatch preview ──
     var colorHexInput = document.querySelector('[name="theme_color_hex"]');
     var colorSwatch   = document.getElementById("cdg-color-swatch");
