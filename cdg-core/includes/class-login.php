@@ -87,24 +87,24 @@ class CDG_Core_Login
     if ($accent) {
       $accent_dark = $this->darken_hex($accent, 12);
       $accent_css =
-        "body.login .wp-core-ui .button-primary,
-      body.login .wp-core-ui .button-primary:visited {
+        "body.login.wp-core-ui .button-primary,
+      body.login.wp-core-ui .button-primary:visited {
         background-color: " .
         esc_attr($accent) .
-        ";
+        " !important;
         border-color: " .
         esc_attr($accent_dark) .
-        ";
-        color: #fff;
+        " !important;
+        color: #fff !important;
       }
-      body.login .wp-core-ui .button-primary:hover,
-      body.login .wp-core-ui .button-primary:focus {
+      body.login.wp-core-ui .button-primary:hover,
+      body.login.wp-core-ui .button-primary:focus {
         background-color: " .
         esc_attr($accent_dark) .
-        ";
+        " !important;
         border-color: " .
         esc_attr($accent_dark) .
-        ";
+        " !important;
       }
       body.login input[type='text']:focus,
       body.login input[type='password']:focus {
