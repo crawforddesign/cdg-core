@@ -1357,7 +1357,7 @@ class CDG_Core_Admin
   {
     $this->card(
       "Plugin Visibility",
-      "Hide specific plugins from the Plugins page on a per-user basis. Administrators always see every plugin regardless of this setting.",
+      "Hide specific plugins from the Plugins page on a per-user basis.",
       function () use ($s) {
         $all_plugins = CDG_Core_Plugin_Visibility::get_all_plugins();
         $per_user = $s["hidden_plugins_per_user"] ?? [];
@@ -1376,7 +1376,6 @@ class CDG_Core_Admin
         );
 
         $users = get_users([
-          "role__not_in" => ["administrator"],
           "orderby" => "display_name",
           "order" => "ASC",
         ]);
@@ -1721,7 +1720,7 @@ class CDG_Core_Admin
         echo '<div class="cdg-guide-body cdg-guide-group">';
         $this->guide_item(
           "How it works",
-          "Plugins are hidden per user. Each non-administrator user gets their own column — check the plugins you want to hide from that person. The plugins remain fully active; only their visibility in the list is affected. Administrators always see every plugin regardless of this setting."
+          "Plugins are hidden per user. Every WordPress user gets their own section — check the plugins you want to hide from that person. The plugins remain fully active; only their visibility in the list is affected."
         );
         $this->guide_item(
           "Common use",

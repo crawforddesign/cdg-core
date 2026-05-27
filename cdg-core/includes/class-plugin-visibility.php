@@ -36,11 +36,6 @@ class CDG_Core_Plugin_Visibility
      */
     public function filter_plugins_list(array $plugins): array
     {
-        // Administrators always see everything.
-        if (current_user_can('manage_options')) {
-            return $plugins;
-        }
-
         $user_id  = get_current_user_id();
         $per_user = (array) $this->plugin->get_setting('hidden_plugins_per_user');
         $hidden   = $per_user[$user_id] ?? [];
