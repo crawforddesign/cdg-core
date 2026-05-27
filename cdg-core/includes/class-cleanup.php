@@ -50,11 +50,11 @@ class CDG_Core_Cleanup
             add_action('admin_init', [$this, 'remove_php_nag_early']);
         }
 
-        // Dashboard widget removal - high priority to run after widgets are registered
-        add_action('wp_dashboard_setup', [$this, 'remove_dashboard_widgets'], 999);
+        // Capture available widgets before any removal so the full list is persisted
+        add_action('wp_dashboard_setup', [$this, 'capture_dashboard_widgets'], 100);
 
-        // Capture available widgets for admin UI (runs after all widgets registered)
-        add_action('wp_dashboard_setup', [$this, 'capture_dashboard_widgets'], 9999);
+        // Dashboard widget removal - runs after capture so removed widgets stay in the cache
+        add_action('wp_dashboard_setup', [$this, 'remove_dashboard_widgets'], 999);
 
         // Invalidate widget cache when plugins are activated/deactivated
         add_action('activated_plugin', [__CLASS__, 'invalidate_widget_cache']);
