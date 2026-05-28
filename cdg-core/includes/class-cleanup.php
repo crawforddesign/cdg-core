@@ -13,6 +13,28 @@ declare(strict_types=1);
 class CDG_Core_Cleanup
 {
     /**
+     * WordPress core dashboard widget IDs managed by CDG Core's dedicated
+     * "WordPress Core" checkboxes. Stored as a constant so both the capture
+     * method (which skips them at write-time) and the admin UI (which filters
+     * them from the Plugin Widgets list) stay in sync automatically.
+     *
+     * dashboard_recent_comments is included because the "Disable Comments"
+     * feature force-removes it — there is no point offering it as an
+     * independently toggleable plugin widget.
+     */
+    public const CORE_WIDGET_IDS = [
+        'dashboard_quick_press',
+        'dashboard_primary',
+        'dashboard_secondary',
+        'dashboard_php_nag',
+        'dashboard_browser_nag',
+        'dashboard_site_health',
+        'dashboard_activity',
+        'dashboard_right_now',
+        'dashboard_recent_comments',
+    ];
+
+    /**
      * Plugin instance
      *
      * @var CDG_Core
@@ -111,8 +133,16 @@ class CDG_Core_Cleanup
                         continue;
                     }
 
-                    // Skip our own widgets
+                    // Skip CDG's own widgets
                     if (strpos((string) $id, 'cdg_') === 0) {
+                        continue;
+                    }
+
+                    // Skip core WordPress widgets — these are managed by the
+                    // dedicated "WordPress Core" checkboxes and must never
+                    // appear in the plugin widget list, even if a feature
+                    // (e.g. Disable Comments) removes them after this runs.
+                    if (in_array($id, self::CORE_WIDGET_IDS, true)) {
                         continue;
                     }
 

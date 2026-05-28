@@ -3,7 +3,7 @@
  * Gravity Forms Auto Page Generator
  *
  * Registers the `cdg_form` custom post type and handles auto-generating a
- * draft Divi 5 form page in two flows:
+ * published Divi 5 form page in two flows:
  *
  * 1. New form modal (gf_new_form): JS injects a checkbox + slug field into
  *    the flyout panel, stores values in sessionStorage, then fires a WP AJAX
@@ -194,7 +194,7 @@ class CDG_Core_GF_Auto_Page
     }
 
 /**
-     * Create the draft cdg_form post for the given form.
+     * Create the published cdg_form post for the given form.
      *
      * @param int    $form_id
      * @param string $form_title

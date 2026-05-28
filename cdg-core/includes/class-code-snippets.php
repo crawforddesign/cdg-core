@@ -62,6 +62,12 @@ class CDG_Core_Code_Snippets
 
   public function run_php(): void
   {
+    // Do not run PHP snippets during AJAX or REST API calls — output or header()
+    // calls inside a snippet would corrupt the JSON response.
+    if (wp_doing_ajax() || (defined("REST_REQUEST") && REST_REQUEST)) {
+      return;
+    }
+
     foreach ($this->active("php") as $s) {
       try {
         eval($s["code"]); // phpcs:ignore Squiz.PHP.Eval.Discouraged

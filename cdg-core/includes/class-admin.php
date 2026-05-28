@@ -215,50 +215,112 @@ class CDG_Core_Admin
         );
         break;
 
-      case "plugins":
-        // Validate each user ID and plugin file path against real data.
-        $all_plugin_files = array_keys(
-          CDG_Core_Plugin_Visibility::get_all_plugins()
+      case "sidebar":
+        // Pre-fetch captured slugs and user IDs once.
+        $captured_items = CDG_Core_Plugin_Visibility::get_captured_menu_items();
+        $captured_slugs = array_keys($captured_items);
+        $all_user_ids   = array_map(
+          "absint",
+          get_users(["fields" => "ID"])
         );
-        $per_user_plugins = [];
-        foreach ((array) ($input["hidden_plugins_per_user"] ?? []) as $uid => $files) {
-          $uid = absint($uid);
-          if (!$uid || !get_user_by("id", $uid)) {
-            continue;
-          }
-          $sanitized = array_values(
-            array_intersect(
-              array_map("sanitize_text_field", (array) $files),
-              $all_plugin_files
-            )
-          );
-          if (!empty($sanitized)) {
-            $per_user_plugins[$uid] = $sanitized;
-          }
-        }
-        $s["hidden_plugins_per_user"] = $per_user_plugins;
 
-        // Validate each user ID and menu slug against captured menu items.
-        $available_menu_slugs = array_keys(
-          CDG_Core_Admin_Menu::get_available_menu_items()
-        );
-        $per_user_menus = [];
-        foreach ((array) ($input["hidden_menu_items_per_user"] ?? []) as $uid => $slugs) {
-          $uid = absint($uid);
-          if (!$uid || !get_user_by("id", $uid)) {
-            continue;
-          }
-          $sanitized = array_values(
-            array_intersect(
-              array_map("sanitize_text_field", (array) $slugs),
-              $available_menu_slugs
-            )
-          );
-          if (!empty($sanitized)) {
-            $per_user_menus[$uid] = $sanitized;
+        // ── Sidebar entry renames: slug => display_name ──────────────────
+        $entry_names = [];
+        foreach ((array) ($input["sidebar_entry_names"] ?? []) as $slug => $name) {
+          $slug = sanitize_text_field($slug);
+          $name = sanitize_text_field($name);
+          if ($name !== "" && in_array($slug, $captured_slugs, true)) {
+            $entry_names[$slug] = $name;
           }
         }
-        $s["hidden_menu_items_per_user"] = $per_user_menus;
+        $s["sidebar_entry_names"] = $entry_names;
+
+        // ── Sidebar entry hiding: slug => [uid, ...] ─────────────────────
+        $entry_hidden = [];
+        foreach ((array) ($input["sidebar_entry_hidden"] ?? []) as $slug => $uids) {
+          $slug = sanitize_text_field($slug);
+          if (!in_array($slug, $captured_slugs, true)) {
+            continue;
+          }
+          $validated = array_values(
+            array_intersect(
+              array_map("absint", (array) $uids),
+              $all_user_ids
+            )
+          );
+          if (!empty($validated)) {
+            $entry_hidden[$slug] = $validated;
+          }
+        }
+        $s["sidebar_entry_hidden"] = $entry_hidden;
+
+        // ── Custom menu links ────────────────────────────────────────────
+        $custom_links = [];
+        foreach ((array) ($input["custom_menu_links"] ?? []) as $item) {
+          if (!is_array($item)) {
+            continue;
+          }
+          $title = sanitize_text_field($item["title"] ?? "");
+          if ($title === "") {
+            continue;
+          }
+          // Preserve existing ID or mint a new one.
+          $raw_id = preg_replace('/[^a-z0-9]/', '', strtolower($item["id"] ?? ""));
+          $id     = strlen($raw_id) === 8 ? $raw_id : substr(bin2hex(random_bytes(4)), 0, 8);
+
+          $target = ($item["target"] ?? "_self") === "_blank" ? "_blank" : "_self";
+
+          $hidden_for = array_values(
+            array_intersect(
+              array_map("absint", (array) ($item["hidden_for"] ?? [])),
+              $all_user_ids
+            )
+          );
+
+          $custom_links[] = [
+            "id"         => $id,
+            "title"      => $title,
+            "icon"       => sanitize_text_field($item["icon"] ?? "admin-generic"),
+            "link"       => esc_url_raw($item["link"] ?? ""),
+            "target"     => $target,
+            "hidden_for" => $hidden_for,
+          ];
+        }
+        $s["custom_menu_links"] = $custom_links;
+
+        // ── Per-user menu order: uid => JSON [slug, ...] ─────────────────
+        // Valid slugs = captured menu items + custom link slugs.
+        $custom_slugs  = array_map(
+          fn($l) => "cdg_link_" . ($l["id"] ?? ""),
+          $custom_links
+        );
+        $all_valid_slugs = array_merge($captured_slugs, $custom_slugs);
+
+        $menu_order = [];
+        foreach ((array) ($input["sidebar_menu_order"] ?? []) as $uid => $raw_json) {
+          $uid   = absint($uid);
+          if (!$uid || !in_array($uid, $all_user_ids, true)) {
+            continue;
+          }
+          $order = json_decode(
+            wp_unslash((string) $raw_json),
+            true
+          );
+          if (!is_array($order)) {
+            continue;
+          }
+          $validated = array_values(
+            array_filter(
+              $order,
+              fn($slug) => in_array($slug, $all_valid_slugs, true)
+            )
+          );
+          if (!empty($validated)) {
+            $menu_order[$uid] = $validated;
+          }
+        }
+        $s["sidebar_menu_order"] = $menu_order;
+
         break;
 
       case "snippets":
@@ -278,6 +340,11 @@ class CDG_Core_Admin
           $snippets[] = [
             "title"       => sanitize_text_field($item["title"] ?? ""),
             "description" => sanitize_text_field($item["description"] ?? ""),
+            // wp_unslash() is correct here: WordPress applies add_magic_quotes()
+            // to $_POST in wp-settings.php, so every backslash in the textarea
+            // arrives doubled. wp_unslash() strips the extra layer before storage.
+            // If you ever call sanitize_settings() programmatically with raw
+            // (non-magic-quoted) data, skip this or apply addslashes() first.
             "code"        => wp_unslash((string) ($item["code"] ?? "")),
             "type"        => $type,
             "location"    => $location,
@@ -288,6 +355,7 @@ class CDG_Core_Admin
         break;
 
       case "admin":
+        $s["admin_bar_logo_id"] = absint($input["admin_bar_logo_id"] ?? 0);
         $s["login_logo_id"] = absint($input["login_logo_id"] ?? 0);
         $s["enable_custom_login"] = !empty($input["enable_custom_login"]);
         $s["login_generic_errors"] = !empty($input["login_generic_errors"]);
@@ -351,7 +419,7 @@ class CDG_Core_Admin
       "performance" => "Performance",
       "gravity-forms" => "Gravity Forms",
       "admin" => "Admin",
-      "plugins" => "Plugins",
+      "sidebar" => "Sidebar",
       "snippets" => "Code Snippets",
       "guide" => "Guide",
     ];
@@ -451,8 +519,8 @@ class CDG_Core_Admin
       case "admin":
         $this->tab_admin($s);
         break;
-      case "plugins":
-        $this->tab_plugins($s);
+      case "sidebar":
+        $this->tab_sidebar($s);
         break;
       case "snippets":
         $this->tab_snippets($s);
@@ -614,8 +682,8 @@ class CDG_Core_Admin
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>',
       "admin" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-      "plugins" =>
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="6.5"/></svg>',
+      "sidebar" =>
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>',
       "snippets" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
       "guide" =>
@@ -856,20 +924,11 @@ class CDG_Core_Admin
         // Plugin widgets
         $this->section_label("Plugin Widgets");
 
-        $core_ids = [
-          "dashboard_quick_press",
-          "dashboard_primary",
-          "dashboard_secondary",
-          "dashboard_php_nag",
-          "dashboard_browser_nag",
-          "dashboard_site_health",
-          "dashboard_activity",
-          "dashboard_right_now",
-        ];
-
+        // Belt-and-suspenders: the capture already excludes these IDs, but
+        // filter defensively here too in case the transient pre-dates this fix.
         $plugin_widgets = array_filter(
           CDG_Core_Cleanup::get_available_widgets(),
-          fn($w) => !in_array($w["id"], $core_ids, true)
+          fn($w) => !in_array($w["id"], CDG_Core_Cleanup::CORE_WIDGET_IDS, true)
         );
 
         $hidden = $s["hidden_dashboard_widgets"] ?? [];
@@ -1328,6 +1387,45 @@ class CDG_Core_Admin
     );
 
     $this->card(
+      "Admin Bar",
+      "Replace the default WordPress &#8220;W&#8221; logo in the top-left of the admin bar with a custom image. Visible to all logged-in users on every page.",
+      function () use ($s) {
+        $logo_id  = absint($s["admin_bar_logo_id"] ?? 0);
+        $logo_src = $logo_id
+          ? wp_get_attachment_image_url($logo_id, "thumbnail")
+          : "";
+
+        $logo_control =
+          '<div class="cdg-media-picker">' .
+          '<input type="hidden" name="admin_bar_logo_id" id="cdg-adminbar-logo-id" value="' .
+          esc_attr($logo_id ?: "") .
+          '">' .
+          '<div class="cdg-media-preview" id="cdg-adminbar-logo-preview"' .
+          ($logo_src ? "" : ' style="display:none;"') .
+          ">" .
+          '<img id="cdg-adminbar-logo-img" src="' .
+          esc_url($logo_src ?: "") .
+          '" alt="">' .
+          "</div>" .
+          '<div class="cdg-media-btns">' .
+          '<button type="button" class="cdg-btn cdg-btn-secondary" id="cdg-adminbar-logo-upload">' .
+          esc_html($logo_id ? "Change Logo" : "Select Logo") .
+          "</button>" .
+          '<button type="button" class="cdg-btn cdg-btn-link" id="cdg-adminbar-logo-remove"' .
+          ($logo_id ? "" : ' style="display:none;"') .
+          ">Remove</button>" .
+          "</div>" .
+          "</div>";
+
+        $this->row(
+          "Admin Bar Logo",
+          "Upload a square image (PNG or SVG recommended). It will be displayed at 20&thinsp;&times;&thinsp;20 px.",
+          $logo_control
+        );
+      }
+    );
+
+    $this->card(
       "Admin Branding",
       "Customize the WordPress admin footer with CDG branding.",
       function () use ($s) {
@@ -1404,123 +1502,311 @@ class CDG_Core_Admin
   }
 
   /* ═══════════════════════════════════════════════════════════
-   * TAB: PLUGINS
+   * TAB: SIDEBAR
    * ═══════════════════════════════════════════════════════════ */
 
-  private function tab_plugins(array $s): void
+  /**
+   * Build a <select multiple> of all site users.
+   *
+   * @param string    $name         HTML name attribute (already includes []).
+   * @param WP_User[] $users        All users to list as options.
+   * @param int[]     $selected_ids User IDs that should be pre-selected.
+   * @return string                 HTML string.
+   */
+  private function user_multiselect(
+    string $name,
+    array  $users,
+    array  $selected_ids
+  ): string {
+    $size = max(1, min(count($users), 4));
+    $out  = '<select name="' . esc_attr($name) .
+            '" multiple class="cdg-select-multi" size="' . $size . '">';
+    foreach ($users as $user) {
+      $sel  = in_array((int) $user->ID, $selected_ids, true) ? " selected" : "";
+      $out .= '<option value="' . esc_attr((string) $user->ID) . '"' . $sel . ">" .
+              esc_html($user->display_name) . "</option>";
+    }
+    $out .= "</select>";
+    return $out;
+  }
+
+  /**
+   * Render a single custom-link repeater row.
+   *
+   * @param int|string $index  Numeric index (or __INDEX__ for the JS template).
+   * @param array      $link   Saved link data; empty array for a blank row.
+   */
+  private function render_custom_link_row($index, array $link = []): void
   {
-    $users = get_users([
-      "orderby" => "display_name",
-      "order"   => "ASC",
-    ]);
+    $i          = esc_attr((string) $index);
+    $id         = esc_attr($link["id"]     ?? "");
+    $title      = esc_attr($link["title"]  ?? "");
+    $icon       = esc_attr($link["icon"]   ?? "admin-generic");
+    $url        = esc_attr($link["link"]   ?? "");
+    $target     = ($link["target"] ?? "_self") === "_blank" ? "_blank" : "_self";
+    $hidden_for = array_map("absint", (array) ($link["hidden_for"] ?? []));
+    ?>
+    <div class="cdg-custom-link-item">
+      <div class="cdg-custom-link-header">
+        <button type="button" class="cdg-icon-picker-btn" title="<?php esc_attr_e("Choose icon", "cdg-core"); ?>">
+          <span class="dashicons dashicons-<?php echo $icon; ?>" data-icon="<?php echo $icon; ?>"></span>
+        </button>
+        <input type="hidden" name="custom_menu_links[<?php echo $i; ?>][id]"   value="<?php echo $id; ?>">
+        <input type="hidden" name="custom_menu_links[<?php echo $i; ?>][icon]" class="cdg-icon-value" value="<?php echo $icon; ?>">
+        <input type="text"
+               name="custom_menu_links[<?php echo $i; ?>][title]"
+               value="<?php echo $title; ?>"
+               placeholder="<?php esc_attr_e("Link title\xe2\x80\xa6", "cdg-core"); ?>"
+               class="cdg-input cdg-custom-link-title">
+        <button type="button" class="cdg-custom-link-remove cdg-btn-icon" title="<?php esc_attr_e("Remove", "cdg-core"); ?>">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="cdg-custom-link-body">
+        <div class="cdg-row">
+          <?php $this->row(
+            "URL",
+            "Full URL for the link. Use a complete address (e.g. https://&hellip;) for external links.",
+            '<input type="url" name="custom_menu_links[' . $i . '][link]" value="' . $url . '" placeholder="https://&hellip;" class="cdg-input">'
+          ); ?>
+        </div>
+        <div class="cdg-row">
+          <?php
+          $target_opts = [
+            "_self"  => ["Same window", ""],
+            "_blank" => ["New tab",     ""],
+          ];
+          $this->row(
+            "Open in",
+            "",
+            $this->radio_group_raw("custom_menu_links[{$i}][target]", $target_opts, $target)
+          );
+          ?>
+        </div>
+        <div class="cdg-row">
+          <?php
+          $users_all = get_users(["orderby" => "display_name", "order" => "ASC"]);
+          $this->row(
+            "Hidden For",
+            "Users who will <strong>not</strong> see this link in the sidebar.",
+            $this->user_multiselect(
+              "custom_menu_links[{$i}][hidden_for][]",
+              $users_all,
+              $hidden_for
+            )
+          );
+          ?>
+        </div>
+      </div>
+    </div>
+    <?php
+  }
 
+  private function tab_sidebar(array $s): void
+  {
+    $users          = get_users(["orderby" => "display_name", "order" => "ASC"]);
+    $captured_items = CDG_Core_Plugin_Visibility::get_captured_menu_items();
+    $entry_names    = (array) ($s["sidebar_entry_names"]  ?? []);
+    $entry_hidden   = (array) ($s["sidebar_entry_hidden"] ?? []);
+    $custom_links   = array_values((array) ($s["custom_menu_links"]   ?? []));
+    $menu_order     = (array) ($s["sidebar_menu_order"] ?? []);
+
+    // ── Card 1: Sidebar Menu Items ─────────────────────────────────────────
     $this->card(
-      "Plugin Page Visibility",
-      "Hide specific plugins from the Plugins list page on a per-user basis.",
-      function () use ($s, $users) {
-        $all_plugins = CDG_Core_Plugin_Visibility::get_all_plugins();
-        $per_user    = $s["hidden_plugins_per_user"] ?? [];
+      "Sidebar Menu Items",
+      "Rename any admin sidebar entry or hide it from specific users. Visit the WordPress dashboard once to populate this list.",
+      function () use ($captured_items, $entry_names, $entry_hidden, $users) {
+        $real = array_filter($captured_items, fn($i) => !($i["separator"] ?? false));
 
-        if (empty($all_plugins)) {
-          echo '<div class="cdg-empty">' .
-            esc_html__("No plugins found.", "cdg-core") .
-            "</div>";
-          return;
-        }
-
-        uasort(
-          $all_plugins,
-          fn($a, $b) => strcmp($a["Name"] ?? "", $b["Name"] ?? "")
-        );
-
-        if (empty($users)) {
-          echo '<div class="cdg-empty">' .
-            esc_html__("No users found.", "cdg-core") .
-            "</div>";
-          return;
-        }
-
-        foreach ($users as $user) {
-          $hidden     = $per_user[$user->ID] ?? [];
-          $role_names = array_values($user->roles);
-          $role_label = !empty($role_names) ? ucfirst($role_names[0]) : "";
-          $this->section_label($user->display_name, $role_label);
-          echo '<div class="cdg-check-grid">';
-          foreach ($all_plugins as $plugin_file => $plugin_data) {
-            $name = $plugin_data["Name"] ?? $plugin_file;
-            echo '<label class="cdg-check-item">' .
-              '<input type="checkbox" name="hidden_plugins_per_user[' .
-              esc_attr((string) $user->ID) .
-              '][]" value="' .
-              esc_attr($plugin_file) .
-              '"' .
-              (in_array($plugin_file, $hidden, true) ? " checked" : "") .
-              ">" .
-              '<span class="cdg-check-box"></span>' .
-              "<span>" .
-              esc_html($name) .
-              "</span>" .
-              "</label>";
-          }
-          echo "</div>";
-        }
-      }
-    );
-
-    $this->card(
-      "Admin Sidebar Menu",
-      "Hide specific admin sidebar menu items on a per-user basis. Visit the dashboard once after activating new plugins to populate this list.",
-      function () use ($s, $users) {
-        $menu_items = CDG_Core_Admin_Menu::get_available_menu_items();
-        $per_user   = $s["hidden_menu_items_per_user"] ?? [];
-
-        if (empty($menu_items)) {
+        if (empty($real)) {
           echo '<div class="cdg-empty">' .
             esc_html__(
-              "No menu items detected yet. Visit the Dashboard once to populate this list.",
+              "No menu items found yet. Visit the Dashboard to populate this list.",
               "cdg-core"
             ) .
             "</div>";
           return;
         }
 
-        uasort(
-          $menu_items,
-          fn($a, $b) => strcmp($a["title"] ?? "", $b["title"] ?? "")
-        );
-
-        if (empty($users)) {
-          echo '<div class="cdg-empty">' .
-            esc_html__("No users found.", "cdg-core") .
-            "</div>";
-          return;
+        echo '<div class="cdg-si-list">';
+        foreach ($real as $slug => $item) {
+          $title      = $item["title"] ?? $slug;
+          $icon       = $item["icon"]  ?? "";
+          $saved_name = esc_attr($entry_names[$slug] ?? "");
+          $hidden_ids = array_map("absint", (array) ($entry_hidden[$slug] ?? []));
+          $slug_attr  = esc_attr($slug);
+          $has_data   = ($saved_name !== "" || !empty($hidden_ids));
+          ?>
+          <div class="cdg-si-row<?php echo $has_data ? " cdg-si-open" : ""; ?>" data-slug="<?php echo $slug_attr; ?>">
+            <button type="button" class="cdg-si-header">
+              <?php if ($icon !== "" && strpos($icon, '/') === false && $icon !== 'div'): ?>
+                <span class="dashicons dashicons-<?php echo esc_attr($icon); ?>" aria-hidden="true"></span>
+              <?php else: ?>
+                <span class="dashicons dashicons-admin-generic" aria-hidden="true"></span>
+              <?php endif; ?>
+              <span class="cdg-si-title"><?php echo esc_html($title); ?></span>
+              <svg class="cdg-si-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="cdg-si-body">
+              <?php
+              $this->row(
+                "Display As",
+                "Renames this entry for all users.",
+                '<input type="text" name="sidebar_entry_names[' . $slug_attr . ']"' .
+                ' value="' . $saved_name . '"' .
+                ' placeholder="' . esc_attr__("Display as\xe2\x80\xa6", "cdg-core") . '"' .
+                ' class="cdg-input">'
+              );
+              $this->row(
+                "Hidden For",
+                "Users who will <strong>not</strong> see this item in the sidebar.",
+                $this->user_multiselect(
+                  "sidebar_entry_hidden[" . $slug . "][]",
+                  $users,
+                  $hidden_ids
+                )
+              );
+              ?>
+            </div>
+          </div>
+          <?php
         }
-
-        foreach ($users as $user) {
-          $hidden     = $per_user[$user->ID] ?? [];
-          $role_names = array_values($user->roles);
-          $role_label = !empty($role_names) ? ucfirst($role_names[0]) : "";
-          $this->section_label($user->display_name, $role_label);
-          echo '<div class="cdg-check-grid">';
-          foreach ($menu_items as $item) {
-            echo '<label class="cdg-check-item">' .
-              '<input type="checkbox" name="hidden_menu_items_per_user[' .
-              esc_attr((string) $user->ID) .
-              '][]" value="' .
-              esc_attr($item["slug"]) .
-              '"' .
-              (in_array($item["slug"], $hidden, true) ? " checked" : "") .
-              ">" .
-              '<span class="cdg-check-box"></span>' .
-              "<span>" .
-              esc_html($item["title"]) .
-              "</span>" .
-              "</label>";
-          }
-          echo "</div>";
-        }
+        echo "</div>";
       }
     );
+
+    // ── Card 2: Custom Menu Links ──────────────────────────────────────────
+    $this->card(
+      "Custom Menu Links",
+      "Add custom links to the admin sidebar. Each link can be shown to all users or restricted to specific ones.",
+      function () use ($custom_links) {
+        $count = count($custom_links);
+
+        echo '<div id="cdg-links-list" data-count="' . $count . '">';
+        foreach ($custom_links as $i => $link) {
+          $this->render_custom_link_row($i, $link);
+        }
+        echo "</div>";
+
+        // Empty state.
+        $empty_style = $count > 0 ? ' style="display:none;"' : "";
+        echo '<div class="cdg-snippets-empty" id="cdg-links-empty"' . $empty_style . ">" .
+          esc_html__("No custom links yet. Click the button below to add one.", "cdg-core") .
+          "</div>";
+
+        // Template for JS cloning.
+        echo '<template id="cdg-link-template">';
+        $this->render_custom_link_row("__INDEX__");
+        echo "</template>";
+
+        echo '<div class="cdg-snippet-add-wrap">' .
+          '<button type="button" id="cdg-link-add" class="cdg-btn">' .
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' .
+          esc_html__(" Add Link", "cdg-core") .
+          "</button></div>";
+      }
+    );
+
+    // ── Card 3: Menu Order ─────────────────────────────────────────────────
+    if (!empty($users)) {
+      $this->card(
+        "Menu Order",
+        "Drag items to set the sidebar order for each user. Items not in the list appear at the bottom in their default order.",
+        function () use ($users, $captured_items, $custom_links, $menu_order) {
+          if (empty($captured_items)) {
+            echo '<div class="cdg-empty">' .
+              esc_html__(
+                "Visit the Dashboard once to populate the menu item list.",
+                "cdg-core"
+              ) . "</div>";
+            return;
+          }
+
+          // ── User tabs ───────────────────────────────────────────────────
+          echo '<div class="cdg-order-tabs">';
+          foreach ($users as $idx => $user) {
+            $active = $idx === 0 ? " cdg-order-tab-active" : "";
+            echo '<button type="button" class="cdg-order-tab' . $active . '"' .
+              ' data-uid="' . esc_attr((string) $user->ID) . '">' .
+              esc_html($user->display_name) .
+              "</button>";
+          }
+          echo "</div>";
+
+          // Build the full ordered list per user (captured + custom links).
+          foreach ($users as $idx => $user) {
+            $uid        = (int) $user->ID;
+            $saved_json = $menu_order[$uid] ?? [];
+            $saved_order = is_array($saved_json)
+              ? $saved_json
+              : (array) json_decode((string) $saved_json, true);
+
+            // Build slug → item map.
+            $all_items = [];
+            foreach ($captured_items as $slug => $item) {
+              $all_items[$slug] = [
+                "title"     => $item["separator"] ? "" : ($item["title"] ?? $slug),
+                "icon"      => $item["icon"]      ?? "",
+                "separator" => $item["separator"] ?? false,
+              ];
+            }
+            foreach ($custom_links as $link) {
+              $lid = "cdg_link_" . ($link["id"] ?? "");
+              $all_items[$lid] = [
+                "title"     => $link["title"] ?? "",
+                "icon"      => $link["icon"]  ?? "admin-generic",
+                "separator" => false,
+              ];
+            }
+
+            // Merge saved order first, then unseen items.
+            $ordered_slugs = $saved_order;
+            foreach (array_keys($all_items) as $slug) {
+              if (!in_array($slug, $ordered_slugs, true)) {
+                $ordered_slugs[] = $slug;
+              }
+            }
+
+            $hidden = $idx === 0 ? "" : ' style="display:none;"';
+            echo '<div class="cdg-order-user" data-uid="' . esc_attr((string) $uid) . '"' . $hidden . ">";
+
+            $json_val = esc_attr(wp_json_encode($saved_order ?: []));
+            echo '<input type="hidden"' .
+              ' name="sidebar_menu_order[' . esc_attr((string) $uid) . ']"' .
+              ' class="cdg-order-input" value="' . $json_val . '">';
+
+            echo '<ul class="cdg-drag-list">';
+            foreach ($ordered_slugs as $slug) {
+              if (!isset($all_items[$slug])) {
+                continue;
+              }
+              $item_data  = $all_items[$slug];
+              $is_sep     = $item_data["separator"];
+              $item_icon  = $item_data["icon"] ?? "";
+              $item_title = $item_data["title"] ?? "";
+              $sep_class  = $is_sep ? " cdg-drag-sep" : "";
+
+              echo '<li class="cdg-drag-item' . $sep_class . '"' .
+                ' data-slug="' . esc_attr($slug) . '" draggable="true">';
+              echo '<span class="cdg-drag-handle" aria-hidden="true">&#8942;</span>';
+              if ($is_sep) {
+                echo '<span class="cdg-drag-sep-line"></span>';
+              } else {
+                if ($item_icon !== "" && strpos($item_icon, "/") === false && $item_icon !== "div") {
+                  echo '<span class="dashicons dashicons-' . esc_attr($item_icon) . ' cdg-drag-icon" aria-hidden="true"></span>';
+                } else {
+                  echo '<span class="dashicons dashicons-admin-generic cdg-drag-icon" aria-hidden="true"></span>';
+                }
+                echo '<span class="cdg-drag-title">' . esc_html($item_title) . "</span>";
+              }
+              echo "</li>";
+            }
+            echo "</ul>";
+            echo "</div>";
+          }
+        }
+      );
+    }
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -1543,7 +1829,7 @@ class CDG_Core_Admin
 
     $this->card(
       "Code Snippets",
-      "CSS and HTML inject into the site head or footer. JavaScript injects as a &lt;script&gt; tag. PHP runs on the <code>init</code> hook.",
+      "Snippets run on the <strong>front end only</strong>. CSS, JS, and HTML are injected into the page head or footer. PHP runs on the <code>init</code> hook. For custom admin styles, use the <a href=\"" . esc_url( admin_url("options-general.php?page=cdg-core-settings&tab=admin") ) . "\" class=\"cdg-guide-link\">Admin tab &rsaquo; Custom Admin CSS</a>.",
       function () use ($snippets) {
         $count = count($snippets);
 
@@ -1557,14 +1843,14 @@ class CDG_Core_Admin
 
         echo "</div>";
 
-        if ($count === 0) {
-          echo '<div class="cdg-snippets-empty" id="cdg-snippets-empty">' .
-            esc_html__(
-              "No snippets added yet.",
-              "cdg-core"
-            ) .
-            "</div>";
-        }
+        // Always render — hidden via inline style when rows exist so JS can
+        // reveal it after the last row is removed on the same page load.
+        $empty_style = $count > 0 ? ' style="display:none;"' : '';
+        echo '<div class="cdg-snippets-empty" id="cdg-snippets-empty"' .
+          $empty_style .
+          '>' .
+          esc_html__("No snippets added yet.", "cdg-core") .
+          "</div>";
 
         echo '<div class="cdg-snippet-add-wrap">';
         echo '<button type="button" class="cdg-btn cdg-btn-secondary" id="cdg-snippet-add">';

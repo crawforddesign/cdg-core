@@ -118,7 +118,7 @@ class CDG_Core_Performance
                 return (int) $this->plugin->get_setting('post_revisions_limit');
             case 'unlimited':
             default:
-                return -1;
+                return PHP_INT_MAX;
         }
     }
 

@@ -90,8 +90,6 @@ final class CDG_Core
 
     // WordPress Cleanup
     "remove_wp_version" => true,
-    "remove_wlw_manifest" => true,
-    "remove_rsd_link" => true,
     "remove_shortlink" => true,
     "remove_adjacent_posts" => true,
     "remove_oembed_links" => true,
@@ -151,9 +149,14 @@ final class CDG_Core
     // Code Snippets
     "code_snippets" => [],
 
-    // Plugin Visibility
-    "hidden_plugins_per_user"    => [],
-    "hidden_menu_items_per_user" => [],
+    // Sidebar management
+    "sidebar_entry_names"  => [],   // menu_slug => display_name (global rename)
+    "sidebar_entry_hidden" => [],   // menu_slug => [uid, ...]
+    "custom_menu_links"    => [],   // [{id, title, icon, link, target, hidden_for:[uid,...]}]
+    "sidebar_menu_order"   => [],   // uid => JSON-encoded [slug, ...]
+
+    // Admin Bar
+    "admin_bar_logo_id" => 0,
 
     // Login Page
     "login_logo_id" => 0,
@@ -307,9 +310,6 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
     // Plugin Visibility — always active; filter is a no-op when list is empty.
     new CDG_Core_Plugin_Visibility($this);
 
-    // Admin Menu Visibility — always active; removal is a no-op when list is empty.
-    new CDG_Core_Admin_Menu($this);
-
     // Security Audit — instantiated outside is_admin() so the wp_login
     // hook (login timestamp recording) fires on the login page as well.
     new CDG_Core_Security_Audit($this);
@@ -351,6 +351,12 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
     // Custom admin CSS
     if (!empty($this->get_setting("custom_admin_css"))) {
       add_action("admin_head", [$this, "output_custom_admin_css"]);
+    }
+
+    // Admin bar logo CSS override.
+    if ($this->get_setting("admin_bar_logo_id")) {
+      add_action("admin_head", [$this, "output_admin_bar_logo_css"]);
+      add_action("wp_head",    [$this, "output_admin_bar_logo_css"]);
     }
 
     // Theme color meta tag
@@ -450,6 +456,40 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
         wp_strip_all_tags($css)
       );
     }
+  }
+
+  /**
+   * Output admin bar logo CSS override.
+   *
+   * Hides the default WordPress "W" dashicon and replaces it with the
+   * selected attachment image via background-image on the same element.
+   *
+   * @return void
+   */
+  public function output_admin_bar_logo_css(): void
+  {
+    $logo_id = absint($this->get_setting("admin_bar_logo_id"));
+    if (!$logo_id) {
+      return;
+    }
+
+    $url = wp_get_attachment_image_url($logo_id, "thumbnail");
+    if (!$url) {
+      return;
+    }
+
+    printf(
+      '<style id="cdg-adminbar-logo-css">' .
+        '#wpadminbar #wp-admin-bar-wp-logo>.ab-item .ab-icon{' .
+          'background-image:url(%s)!important;' .
+          'background-size:20px auto!important;' .
+          'background-position:0 6px!important;' .
+          'background-repeat:no-repeat!important' .
+        '}' .
+        '#wpadminbar #wp-admin-bar-wp-logo>.ab-item .ab-icon::before{content:""!important}' .
+      '</style>' . "\n",
+      esc_url($url)
+    );
   }
 
   /**
