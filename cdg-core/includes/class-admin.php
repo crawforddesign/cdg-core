@@ -261,6 +261,32 @@ class CDG_Core_Admin
         $s["hidden_menu_items_per_user"] = $per_user_menus;
         break;
 
+      case "snippets":
+        $snippets = [];
+        foreach ((array) ($input["code_snippets"] ?? []) as $item) {
+          if (!is_array($item)) {
+            continue;
+          }
+          $type = sanitize_text_field($item["type"] ?? "css");
+          if (!in_array($type, ["css", "js", "html", "php"], true)) {
+            $type = "css";
+          }
+          $location = sanitize_text_field($item["location"] ?? "head");
+          if (!in_array($location, ["head", "footer"], true)) {
+            $location = "head";
+          }
+          $snippets[] = [
+            "title"       => sanitize_text_field($item["title"] ?? ""),
+            "description" => sanitize_text_field($item["description"] ?? ""),
+            "code"        => wp_unslash((string) ($item["code"] ?? "")),
+            "type"        => $type,
+            "location"    => $location,
+            "active"      => !empty($item["active"]),
+          ];
+        }
+        $s["code_snippets"] = $snippets;
+        break;
+
       case "admin":
         $s["login_logo_id"] = absint($input["login_logo_id"] ?? 0);
         $s["enable_custom_login"] = !empty($input["enable_custom_login"]);
@@ -326,6 +352,7 @@ class CDG_Core_Admin
       "gravity-forms" => "Gravity Forms",
       "admin" => "Admin",
       "plugins" => "Plugins",
+      "snippets" => "Code Snippets",
       "guide" => "Guide",
     ];
     ?>
@@ -426,6 +453,9 @@ class CDG_Core_Admin
         break;
       case "plugins":
         $this->tab_plugins($s);
+        break;
+      case "snippets":
+        $this->tab_snippets($s);
         break;
       case "guide":
         $this->tab_guide();
@@ -586,6 +616,8 @@ class CDG_Core_Admin
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
       "plugins" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="6.5"/></svg>',
+      "snippets" =>
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
       "guide" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
     ];
@@ -1489,6 +1521,170 @@ class CDG_Core_Admin
         }
       }
     );
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+   * TAB: CODE SNIPPETS
+   * ═══════════════════════════════════════════════════════════ */
+
+  private function tab_snippets(array $s): void
+  {
+    $snippets = array_values((array) ($s["code_snippets"] ?? []));
+
+    echo '<div class="cdg-notice cdg-notice-warn">' .
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' .
+      "<div>" .
+      esc_html__(
+        "PHP snippets are executed server-side via eval(). Errors are caught silently to prevent site lockout — test PHP carefully before activating.",
+        "cdg-core"
+      ) .
+      "</div>" .
+      "</div>";
+
+    $this->card(
+      "Code Snippets",
+      "CSS and HTML inject into the site head or footer. JavaScript injects as a &lt;script&gt; tag. PHP runs on the <code>init</code> hook.",
+      function () use ($snippets) {
+        $count = count($snippets);
+
+        echo '<div id="cdg-snippets-list" data-count="' .
+          esc_attr((string) $count) .
+          '">';
+
+        foreach ($snippets as $i => $snippet) {
+          $this->render_snippet_row($i, $snippet);
+        }
+
+        echo "</div>";
+
+        if ($count === 0) {
+          echo '<div class="cdg-snippets-empty" id="cdg-snippets-empty">' .
+            esc_html__(
+              "No snippets added yet.",
+              "cdg-core"
+            ) .
+            "</div>";
+        }
+
+        echo '<div class="cdg-snippet-add-wrap">';
+        echo '<button type="button" class="cdg-btn cdg-btn-secondary" id="cdg-snippet-add">';
+        echo '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>';
+        echo esc_html__("Add Snippet", "cdg-core");
+        echo "</button>";
+        echo "</div>";
+
+        echo '<template id="cdg-snippet-template">';
+        $this->render_snippet_row("__INDEX__", []);
+        echo "</template>";
+      }
+    );
+  }
+
+  private function render_snippet_row($index, array $snippet): void
+  {
+    $active   = !empty($snippet["active"]);
+    $title    = esc_attr($snippet["title"] ?? "");
+    $desc     = esc_attr($snippet["description"] ?? "");
+    $type     = $snippet["type"] ?? "css";
+    $location = $snippet["location"] ?? "head";
+    $code     = esc_textarea($snippet["code"] ?? "");
+    $idx      = is_string($index) ? $index : (string) $index;
+
+    if (!in_array($type, ["css", "js", "html", "php"], true)) {
+      $type = "css";
+    }
+    if (!in_array($location, ["head", "footer"], true)) {
+      $location = "head";
+    }
+
+    $show_location = in_array($type, ["js", "html"], true);
+    $loc_style     = $show_location ? "" : ' style="display:none;"';
+
+    echo '<div class="cdg-snippet-item">';
+
+    // Active + title + type
+    echo '<div class="cdg-snippet-top-row">';
+    echo '<label class="cdg-switch" title="Active">';
+    echo '<input type="checkbox" name="code_snippets[' .
+      $idx .
+      '][active]" value="1"' .
+      ($active ? " checked" : "") .
+      ">";
+    echo '<span class="cdg-switch-slider"></span>';
+    echo "</label>";
+    echo '<input type="text" name="code_snippets[' .
+      $idx .
+      '][title]" value="' .
+      $title .
+      '" placeholder="' .
+      esc_attr__("Snippet title", "cdg-core") .
+      '" class="cdg-input">';
+    echo '<select name="code_snippets[' .
+      $idx .
+      '][type]" class="cdg-select cdg-snippet-type">';
+    foreach (
+      ["css" => "CSS", "js" => "JavaScript", "html" => "HTML", "php" => "PHP"]
+      as $val => $label
+    ) {
+      echo '<option value="' .
+        esc_attr($val) .
+        '"' .
+        ($type === $val ? " selected" : "") .
+        ">" .
+        esc_html($label) .
+        "</option>";
+    }
+    echo "</select>";
+    echo "</div>";
+
+    // Description
+    echo '<input type="text" name="code_snippets[' .
+      $idx .
+      '][description]" value="' .
+      $desc .
+      '" placeholder="' .
+      esc_attr__("Description (optional)", "cdg-core") .
+      '" class="cdg-input">';
+
+    // Location (JS / HTML only)
+    echo '<div class="cdg-snippet-location-row"' . $loc_style . ">";
+    echo '<span class="cdg-snippet-location-label">' .
+      esc_html__("Location", "cdg-core") .
+      "</span>";
+    echo '<div class="cdg-radio-group">';
+    foreach (["head" => "Head", "footer" => "Footer"] as $val => $label) {
+      echo '<label class="cdg-radio-card">';
+      echo '<input type="radio" name="code_snippets[' .
+        $idx .
+        '][location]" value="' .
+        esc_attr($val) .
+        '"' .
+        ($location === $val ? " checked" : "") .
+        ">";
+      echo '<span class="cdg-radio-dot"></span>';
+      echo '<span class="cdg-radio-text"><strong>' .
+        esc_html($label) .
+        "</strong></span>";
+      echo "</label>";
+    }
+    echo "</div>";
+    echo "</div>";
+
+    // Code
+    echo '<textarea name="code_snippets[' .
+      $idx .
+      '][code]" rows="8" class="cdg-input cdg-input-mono cdg-snippet-code">' .
+      $code .
+      "</textarea>";
+
+    // Footer
+    echo '<div class="cdg-snippet-footer">';
+    echo '<button type="button" class="cdg-btn cdg-btn-link cdg-snippet-remove">' .
+      esc_html__("Remove Snippet", "cdg-core") .
+      "</button>";
+    echo "</div>";
+
+    echo "</div>";
   }
 
   /* ═══════════════════════════════════════════════════════════

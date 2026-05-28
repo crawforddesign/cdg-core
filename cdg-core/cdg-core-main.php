@@ -148,6 +148,9 @@ final class CDG_Core
     "gf_detection_mode" => "auto",
     "gf_manual_pages" => [],
 
+    // Code Snippets
+    "code_snippets" => [],
+
     // Plugin Visibility
     "hidden_plugins_per_user"    => [],
     "hidden_menu_items_per_user" => [],
@@ -322,6 +325,9 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
 
     // Login Page
     new CDG_Core_Login($this);
+
+    // Code Snippets — always instantiated; class checks active flag per snippet.
+    new CDG_Core_Code_Snippets($this);
 
     // Admin
     if (is_admin()) {

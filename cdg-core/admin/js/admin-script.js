@@ -115,6 +115,64 @@
       }
     }
 
+    // ── Code Snippets repeater ──
+    var snippetsList    = document.getElementById("cdg-snippets-list");
+    var snippetTemplate = document.getElementById("cdg-snippet-template");
+    var snippetAddBtn   = document.getElementById("cdg-snippet-add");
+    var snippetsEmpty   = document.getElementById("cdg-snippets-empty");
+
+    if (snippetsList && snippetTemplate && snippetAddBtn) {
+      var snippetCounter = parseInt(snippetsList.dataset.count || "0", 10);
+
+      function syncSnippetsEmpty() {
+        if (!snippetsEmpty) return;
+        snippetsEmpty.style.display = snippetsList.children.length === 0 ? "" : "none";
+      }
+
+      function initSnippetRow(row) {
+        var typeSelect  = row.querySelector(".cdg-snippet-type");
+        var locationRow = row.querySelector(".cdg-snippet-location-row");
+
+        if (typeSelect && locationRow) {
+          function syncLocation() {
+            var t = typeSelect.value;
+            locationRow.style.display = (t === "js" || t === "html") ? "" : "none";
+          }
+          typeSelect.addEventListener("change", syncLocation);
+          syncLocation();
+        }
+
+        var removeBtn = row.querySelector(".cdg-snippet-remove");
+        if (removeBtn) {
+          removeBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            if (window.confirm("Remove this snippet?")) {
+              row.remove();
+              syncSnippetsEmpty();
+            }
+          });
+        }
+      }
+
+      snippetsList.querySelectorAll(".cdg-snippet-item").forEach(initSnippetRow);
+
+      snippetAddBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var html = snippetTemplate.innerHTML.replace(/__INDEX__/g, String(snippetCounter));
+        snippetCounter++;
+        var tmp = document.createElement("div");
+        tmp.innerHTML = html;
+        var row = tmp.firstElementChild;
+        snippetsList.appendChild(row);
+        initSnippetRow(row);
+        syncSnippetsEmpty();
+        var firstInput = row.querySelector(".cdg-input");
+        if (firstInput) firstInput.focus();
+      });
+
+      syncSnippetsEmpty();
+    }
+
     // ── Color hex input → swatch preview ──
     var colorHexInput = document.querySelector('[name="theme_color_hex"]');
     var colorSwatch   = document.getElementById("cdg-color-swatch");

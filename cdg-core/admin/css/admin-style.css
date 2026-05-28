@@ -846,6 +846,71 @@ textarea.cdg-input {
   display: none;
 }
 
+/* ── Code Snippets repeater ── */
+.cdg-snippet-add-wrap {
+  padding: 14px 20px;
+  border-top: 1px solid var(--cdg-border);
+}
+
+.cdg-snippets-empty {
+  padding: 24px 20px;
+  font-size: 13px;
+  color: var(--cdg-muted-fg);
+  font-style: italic;
+  text-align: center;
+}
+
+.cdg-snippet-item {
+  padding: 20px;
+  border-bottom: 1px solid var(--cdg-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cdg-snippet-top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cdg-snippet-top-row .cdg-input {
+  flex: 1;
+}
+
+.cdg-snippet-top-row .cdg-select {
+  min-width: 130px;
+  flex-shrink: 0;
+}
+
+.cdg-snippet-location-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cdg-snippet-location-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cdg-fg-2);
+  flex-shrink: 0;
+}
+
+.cdg-snippet-location-row .cdg-radio-group {
+  flex-wrap: nowrap;
+}
+
+.cdg-snippet-code {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+}
+
+.cdg-snippet-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* ── Responsive ── */
 @media (max-width: 782px) {
   .cdg-body-layout {
