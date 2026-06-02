@@ -226,6 +226,12 @@ class CDG_Core_Plugin_Visibility
         $by_slug = [];
         foreach ($menu as $pos => $item) {
             $slug = $item[2] ?? '';
+            // CDG custom links store their URL in [2] for navigation but their
+            // cdg_link_{id} slug in [5] (hook suffix). Use that for ordering.
+            $hook = $item[5] ?? '';
+            if (strpos($hook, 'toplevel_page_cdg_link_') === 0) {
+                $slug = substr($hook, strlen('toplevel_page_'));
+            }
             if ($slug !== '') {
                 $by_slug[$slug] = $item;
             }

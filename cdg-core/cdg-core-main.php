@@ -141,11 +141,6 @@ final class CDG_Core
     "post_revisions_mode" => "limited",
     "post_revisions_limit" => 5,
 
-    // Gravity Forms
-    "enable_gf_fixes" => true,
-    "gf_detection_mode" => "auto",
-    "gf_manual_pages" => [],
-
     // Code Snippets
     "code_snippets" => [],
 
@@ -302,10 +297,7 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
       new CDG_Core_CPT_Dashboard($this);
     }
 
-    if ($this->get_setting("enable_gf_fixes")) {
-      new CDG_Core_Gravity_Forms($this);
-      new CDG_Core_GF_Auto_Page($this);
-    }
+    new CDG_Core_GF_Auto_Page($this);
 
     // Plugin Visibility — always active; filter is a no-op when list is empty.
     new CDG_Core_Plugin_Visibility($this);
@@ -480,13 +472,14 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
 
     printf(
       '<style id="cdg-adminbar-logo-css">' .
-        '#wpadminbar #wp-admin-bar-wp-logo>.ab-item .ab-icon{' .
+        '#wpadminbar>#wp-toolbar>#wp-admin-bar-root-default #wp-admin-bar-wp-logo>.ab-item .ab-icon{' .
           'background-image:url(%s)!important;' .
           'background-size:20px auto!important;' .
           'background-position:0 6px!important;' .
-          'background-repeat:no-repeat!important' .
+          'background-repeat:no-repeat!important;' .
+          'width:20px!important' .
         '}' .
-        '#wpadminbar #wp-admin-bar-wp-logo>.ab-item .ab-icon::before{content:""!important}' .
+        '#wpadminbar>#wp-toolbar>#wp-admin-bar-root-default #wp-admin-bar-wp-logo>.ab-item .ab-icon::before{content:""!important}' .
       '</style>' . "\n",
       esc_url($url)
     );

@@ -85,7 +85,7 @@ class CDG_Core_Admin
     $settings = $this->sanitize_settings($_POST);
     $this->plugin->update_settings($settings);
 
-    $tabs_needing_flush = ["features", "defaults"];
+    $tabs_needing_flush = ["features", "cleanup"];
     if (in_array($tab, $tabs_needing_flush, true)) {
       flush_rewrite_rules();
     }
@@ -129,12 +129,10 @@ class CDG_Core_Admin
         $s["recent_posts_limit"] = absint($input["recent_posts_limit"] ?? 3);
         break;
 
-      case "defaults":
+      case "cleanup":
         $s["disable_comments"] = !empty($input["disable_comments"]);
         $s["hide_divi_projects"] = !empty($input["hide_divi_projects"]);
-        break;
 
-      case "cleanup":
         $s["remove_wp_version"] = !empty($input["remove_wp_version"]);
         $s["remove_shortlink"] = !empty($input["remove_shortlink"]);
         $s["remove_adjacent_posts"] = !empty($input["remove_adjacent_posts"]);
@@ -154,16 +152,6 @@ class CDG_Core_Admin
           "sanitize_text_field",
           (array) ($input["hidden_dashboard_widgets"] ?? [])
         );
-
-        $s["heartbeat_admin"] = sanitize_text_field(
-          $input["heartbeat_admin"] ?? "default"
-        );
-        $s["heartbeat_frontend"] = sanitize_text_field(
-          $input["heartbeat_frontend"] ?? "disable"
-        );
-        $s["heartbeat_exception_builder"] = !empty(
-          $input["heartbeat_exception_builder"]
-        );
         break;
 
       case "security":
@@ -173,12 +161,6 @@ class CDG_Core_Admin
         );
         $s["remove_powered_by"] = !empty($input["remove_powered_by"]);
         $s["disable_code_editor"] = !empty($input["disable_code_editor"]);
-        $s["enable_svg_uploads"] = !empty($input["enable_svg_uploads"]);
-        $s["svg_admin_only"] = !empty($input["svg_admin_only"]);
-        $s["enable_font_uploads"] = !empty($input["enable_font_uploads"]);
-        $s["font_admin_only"] = !empty($input["font_admin_only"]);
-        $s["enable_lottie_uploads"] = !empty($input["enable_lottie_uploads"]);
-        $s["lottie_admin_only"] = !empty($input["lottie_admin_only"]);
         break;
 
       case "performance":
@@ -200,20 +182,23 @@ class CDG_Core_Admin
           $input["post_revisions_limit"] ?? 5
         );
         $s["remove_dns_prefetch"] = !empty($input["remove_dns_prefetch"]);
+        $s["heartbeat_admin"] = sanitize_text_field(
+          $input["heartbeat_admin"] ?? "default"
+        );
+        $s["heartbeat_frontend"] = sanitize_text_field(
+          $input["heartbeat_frontend"] ?? "disable"
+        );
+        $s["heartbeat_exception_builder"] = !empty(
+          $input["heartbeat_exception_builder"]
+        );
+        $s["enable_svg_uploads"] = !empty($input["enable_svg_uploads"]);
+        $s["svg_admin_only"] = !empty($input["svg_admin_only"]);
+        $s["enable_font_uploads"] = !empty($input["enable_font_uploads"]);
+        $s["font_admin_only"] = !empty($input["font_admin_only"]);
+        $s["enable_lottie_uploads"] = !empty($input["enable_lottie_uploads"]);
+        $s["lottie_admin_only"] = !empty($input["lottie_admin_only"]);
         break;
 
-      case "gravity-forms":
-        $s["enable_gf_fixes"] = !empty($input["enable_gf_fixes"]);
-        $s["gf_detection_mode"] = sanitize_text_field(
-          $input["gf_detection_mode"] ?? "auto"
-        );
-        $manual_pages = sanitize_textarea_field(
-          $input["gf_manual_pages"] ?? ""
-        );
-        $s["gf_manual_pages"] = array_filter(
-          array_map("trim", explode("\n", $manual_pages))
-        );
-        break;
 
       case "sidebar":
         // Pre-fetch captured slugs and user IDs once.
@@ -413,11 +398,9 @@ class CDG_Core_Admin
 
     $tabs = [
       "features" => "Features",
-      "defaults" => "Defaults",
       "cleanup" => "WP Cleanup",
       "security" => "Security",
       "performance" => "Performance",
-      "gravity-forms" => "Gravity Forms",
       "admin" => "Admin",
       "sidebar" => "Sidebar",
       "snippets" => "Code Snippets",
@@ -501,9 +484,6 @@ class CDG_Core_Admin
       case "features":
         $this->tab_features($s);
         break;
-      case "defaults":
-        $this->tab_defaults($s);
-        break;
       case "cleanup":
         $this->tab_cleanup($s);
         break;
@@ -512,9 +492,6 @@ class CDG_Core_Admin
         break;
       case "performance":
         $this->tab_performance($s);
-        break;
-      case "gravity-forms":
-        $this->tab_gravity_forms($s);
         break;
       case "admin":
         $this->tab_admin($s);
@@ -670,16 +647,12 @@ class CDG_Core_Admin
     $icons = [
       "features" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
-      "defaults" =>
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>',
       "cleanup" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>',
       "security" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
       "performance" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
-      "gravity-forms" =>
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>',
       "admin" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
       "sidebar" =>
@@ -839,10 +812,10 @@ class CDG_Core_Admin
   }
 
   /* ═══════════════════════════════════════════════════════════
-   * TAB: DEFAULTS
+   * TAB: CLEANUP
    * ═══════════════════════════════════════════════════════════ */
 
-  private function tab_defaults(array $s): void
+  private function tab_cleanup(array $s): void
   {
     $this->card(
       "WordPress Comments",
@@ -867,14 +840,7 @@ class CDG_Core_Admin
         );
       }
     );
-  }
 
-  /* ═══════════════════════════════════════════════════════════
-   * TAB: CLEANUP
-   * ═══════════════════════════════════════════════════════════ */
-
-  private function tab_cleanup(array $s): void
-  {
     // Head cleanup
     $this->card(
       "WordPress Head Cleanup",
@@ -962,52 +928,6 @@ class CDG_Core_Admin
       }
     );
 
-    // Heartbeat
-    $this->card(
-      "WordPress Heartbeat",
-      "Control how often WordPress polls the server to maintain sessions and enable autosave.",
-      function () use ($s) {
-        $this->row(
-          "Admin Heartbeat",
-          "",
-          '<select name="heartbeat_admin" class="cdg-select">' .
-            $this->select_options(
-              [
-                "default" => "WordPress Default",
-                "60" => "60 seconds (recommended)",
-                "120" => "120 seconds",
-                "disable" => "Disabled",
-              ],
-              $s["heartbeat_admin"]
-            ) .
-            "</select>"
-        );
-
-        $this->row(
-          "Frontend Heartbeat",
-          "",
-          '<select name="heartbeat_frontend" class="cdg-select">' .
-            $this->select_options(
-              [
-                "default" => "WordPress Default",
-                "120" => "120 seconds",
-                "disable" => "Disabled (recommended)",
-              ],
-              $s["heartbeat_frontend"]
-            ) .
-            "</select>"
-        );
-
-        $this->row(
-          "Exception: Divi Visual Builder",
-          "Keep heartbeat active while the Divi builder is open, even if disabled above.",
-          $this->sw(
-            "heartbeat_exception_builder",
-            $s["heartbeat_exception_builder"]
-          )
-        );
-      }
-    );
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -1055,59 +975,6 @@ class CDG_Core_Admin
       }
     );
 
-    $this->card(
-      "Upload Permissions",
-      "Allow additional file types in the Media Library. Enable only what&#8217;s needed; restrict to admins where possible.",
-      function () use ($s) {
-        // SVG
-        $this->section_label("SVG Files");
-        $this->row(
-          "Allow SVG Uploads",
-          "SVGs can contain malicious code &#8212; restrict to admins when possible.",
-          $this->sw("enable_svg_uploads", $s["enable_svg_uploads"])
-        );
-        $this->row(
-          "Restrict to Administrators",
-          "Only users with <code>manage_options</code> can upload SVGs.",
-          $this->sw("svg_admin_only", $s["svg_admin_only"]),
-          true,
-          "cdg-svg-admin-row",
-          !$s["enable_svg_uploads"] ? "cdg-disabled" : ""
-        );
-
-        // Fonts
-        $this->section_label("Font Files", "OTF, TTF, WOFF, WOFF2");
-        $this->row(
-          "Allow Font Uploads",
-          "Enables custom font files for use with Divi or custom CSS.",
-          $this->sw("enable_font_uploads", $s["enable_font_uploads"])
-        );
-        $this->row(
-          "Restrict to Administrators",
-          "Only users with <code>manage_options</code> can upload font files.",
-          $this->sw("font_admin_only", $s["font_admin_only"]),
-          true,
-          "cdg-font-admin-row",
-          !$s["enable_font_uploads"] ? "cdg-disabled" : ""
-        );
-
-        // Lottie
-        $this->section_label("Lottie Animations", ".json, .lottie");
-        $this->row(
-          "Allow Lottie Uploads",
-          "Enables .json and .lottie files for animation libraries.",
-          $this->sw("enable_lottie_uploads", $s["enable_lottie_uploads"])
-        );
-        $this->row(
-          "Restrict to Administrators",
-          "Only users with <code>manage_options</code> can upload Lottie files.",
-          $this->sw("lottie_admin_only", $s["lottie_admin_only"]),
-          true,
-          "cdg-lottie-admin-row",
-          !$s["enable_lottie_uploads"] ? "cdg-disabled" : ""
-        );
-      }
-    );
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -1230,61 +1097,103 @@ class CDG_Core_Admin
         );
       }
     );
-  }
-
-  /* ═══════════════════════════════════════════════════════════
-   * TAB: GRAVITY FORMS
-   * ═══════════════════════════════════════════════════════════ */
-
-  private function tab_gravity_forms(array $s): void
-  {
-    if (!class_exists("GFForms")) {
-      echo '<div class="cdg-notice cdg-notice-warn">' .
-        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' .
-        "<div>" .
-        esc_html__(
-          "Gravity Forms is not active. Settings will apply when it is activated.",
-          "cdg-core"
-        ) .
-        "</div>" .
-        "</div>";
-    }
 
     $this->card(
-      "Gravity Forms / Divi Compatibility",
-      "Fixes &#8220;gf_global is not defined&#8221; errors caused by Divi&#8217;s script optimization.",
+      "WordPress Heartbeat",
+      "Control how often WordPress polls the server to maintain sessions and enable autosave.",
       function () use ($s) {
         $this->row(
-          "Enable Compatibility Fixes",
-          "Prevents Divi from deferring Gravity Forms scripts on pages with forms.",
-          $this->sw("enable_gf_fixes", $s["enable_gf_fixes"])
+          "Admin Heartbeat",
+          "",
+          '<select name="heartbeat_admin" class="cdg-select">' .
+            $this->select_options(
+              [
+                "default" => "WordPress Default",
+                "60" => "60 seconds (recommended)",
+                "120" => "120 seconds",
+                "disable" => "Disabled",
+              ],
+              $s["heartbeat_admin"]
+            ) .
+            "</select>"
         );
 
         $this->row(
-          "Detection Mode",
+          "Frontend Heartbeat",
           "",
-          $this->radio_group(
-            "gf_detection_mode",
-            [
-              "auto" => [
-                "Auto-detect",
-                "Detects forms via shortcodes and Divi modules (recommended)",
+          '<select name="heartbeat_frontend" class="cdg-select">' .
+            $this->select_options(
+              [
+                "default" => "WordPress Default",
+                "120" => "120 seconds",
+                "disable" => "Disabled (recommended)",
               ],
-              "manual" => [
-                "Manual only",
-                "Only apply fixes to pages listed below",
-              ],
-            ],
-            $s["gf_detection_mode"]
+              $s["heartbeat_frontend"]
+            ) .
+            "</select>"
+        );
+
+        $this->row(
+          "Exception: Divi Visual Builder",
+          "Keep heartbeat active while the Divi builder is open, even if disabled above.",
+          $this->sw(
+            "heartbeat_exception_builder",
+            $s["heartbeat_exception_builder"]
           )
         );
+      }
+    );
 
+    $this->card(
+      "Media &amp; Uploads",
+      "Allow additional file types in the Media Library. Enable only what&#8217;s needed; restrict to admins where possible.",
+      function () use ($s) {
+        // SVG
+        $this->section_label("SVG Files");
         $this->row(
-          "Additional Pages",
-          "Page slugs to always apply fixes to, one per line. Works alongside auto-detect.",
-          '<textarea name="gf_manual_pages" rows="5" class="cdg-input cdg-input-mono" style="width:260px;" placeholder="contact&#10;submit-form&#10;get-a-quote">' .
-            esc_textarea(implode("\n", $s["gf_manual_pages"] ?? [])) .
-            "</textarea>"
+          "Allow SVG Uploads",
+          "SVGs can contain malicious code &#8212; restrict to admins when possible.",
+          $this->sw("enable_svg_uploads", $s["enable_svg_uploads"])
+        );
+        $this->row(
+          "Restrict to Administrators",
+          "Only users with <code>manage_options</code> can upload SVGs.",
+          $this->sw("svg_admin_only", $s["svg_admin_only"]),
+          true,
+          "cdg-svg-admin-row",
+          !$s["enable_svg_uploads"] ? "cdg-disabled" : ""
+        );
+
+        // Fonts
+        $this->section_label("Font Files", "OTF, TTF, WOFF, WOFF2");
+        $this->row(
+          "Allow Font Uploads",
+          "Enables custom font files for use with Divi or custom CSS.",
+          $this->sw("enable_font_uploads", $s["enable_font_uploads"])
+        );
+        $this->row(
+          "Restrict to Administrators",
+          "Only users with <code>manage_options</code> can upload font files.",
+          $this->sw("font_admin_only", $s["font_admin_only"]),
+          true,
+          "cdg-font-admin-row",
+          !$s["enable_font_uploads"] ? "cdg-disabled" : ""
+        );
+
+        // Lottie
+        $this->section_label("Lottie Animations", ".json, .lottie");
+        $this->row(
+          "Allow Lottie Uploads",
+          "Enables .json and .lottie files for animation libraries.",
+          $this->sw("enable_lottie_uploads", $s["enable_lottie_uploads"])
+        );
+        $this->row(
+          "Restrict to Administrators",
+          "Only users with <code>manage_options</code> can upload Lottie files.",
+          $this->sw("lottie_admin_only", $s["lottie_admin_only"]),
+          true,
+          "cdg-lottie-admin-row",
+          !$s["enable_lottie_uploads"] ? "cdg-disabled" : ""
         );
       }
     );
@@ -2025,14 +1934,24 @@ class CDG_Core_Admin
           "When on, each CPT widget also shows a short list of recent entries. Set the limit to 1&ndash;3 for compact widgets."
         );
         echo "</div>";
+
+        $this->section_label("Gravity Forms: Auto-Generate Form Page");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "Auto-Generate Form Page",
+          'When creating a new form, the "Add New Form" flyout includes an "Auto-Generate Form Page" checkbox. When checked, CDG Core automatically creates a published page under <code>/forms/</code> pre-loaded with a Divi 5 GF Styler module pointing at the new form. A "View Form Page" button is injected into the form editor toolbar so you can jump to the page immediately.'
+        );
+        echo "</div>";
+        echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Auto-generated form pages use the <code>cdg_form</code> custom post type. They are deleted (moved to Trash) automatically when the associated Gravity Forms form is deleted.</span></div>';
       }
     );
 
-    // ── Defaults ──────────────────────────────────────────────
+    // ── WP Cleanup ────────────────────────────────────────────
     $this->card(
-      "Defaults",
-      "Site-wide WordPress and Divi behavior changes.",
+      "WP Cleanup",
+      "Site defaults, head tag cleanup, and dashboard widget management.",
       function () {
+        $this->section_label("WordPress Comments &amp; Divi Defaults");
         echo '<div class="cdg-guide-body cdg-guide-group">';
         $this->guide_item(
           "Disable Comments",
@@ -2043,14 +1962,7 @@ class CDG_Core_Admin
           "Unregisters Divi's built-in Projects post type along with its Project Categories and Project Tags taxonomies. Enable on any site that uses Divi but does not use the Projects feature."
         );
         echo "</div>";
-      }
-    );
 
-    // ── WP Cleanup ────────────────────────────────────────────
-    $this->card(
-      "WP Cleanup",
-      "Head tag cleanup, dashboard widget management, and heartbeat control.",
-      function () {
         $this->section_label("WordPress Head Cleanup");
         echo '<div class="cdg-guide-body cdg-guide-group">';
         $this->guide_item(
@@ -2078,29 +1990,13 @@ class CDG_Core_Admin
           "Plugin-registered dashboard widgets are detected and listed here after you visit the Dashboard at least once. Check any that should be hidden from all users."
         );
         echo "</div>";
-
-        $this->section_label("Heartbeat");
-        echo '<div class="cdg-guide-body cdg-guide-group">';
-        $this->guide_item(
-          "Admin Heartbeat",
-          "Controls how often the browser polls the server in admin pages. The default of 15 seconds is aggressive. 60 seconds is recommended for most sites; it still supports autosave and session keepalive with much less server load."
-        );
-        $this->guide_item(
-          "Frontend Heartbeat",
-          "The heartbeat API runs on the front end by default, serving no practical purpose on most sites. Disabled is recommended unless a theme or plugin requires it."
-        );
-        $this->guide_item(
-          "Divi Builder Exception",
-          "Keeps the heartbeat active while the Divi visual builder is open even if the admin heartbeat is otherwise throttled or disabled. Divi relies on the heartbeat for builder session management."
-        );
-        echo "</div>";
       }
     );
 
     // ── Security ──────────────────────────────────────────────
     $this->card(
       "Security",
-      "Hardening toggles and upload permission controls.",
+      "Hardening toggles.",
       function () {
         $this->section_label("Security Hardening");
         echo '<div class="cdg-guide-body cdg-guide-group">';
@@ -2122,29 +2018,13 @@ class CDG_Core_Admin
         );
         echo "</div>";
         echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Security headers (HSTS, X-Frame-Options, X-XSS-Protection, X-Content-Type-Options) are managed at the Nginx level by SpinupWP and are not duplicated here.</span></div>';
-
-        $this->section_label("Upload Permissions");
-        echo '<div class="cdg-guide-body cdg-guide-group">';
-        $this->guide_item(
-          "SVG Uploads",
-          "Allows SVG and SVGZ files in the Media Library with preview support and automatic dimension detection. The Restrict to Administrators option limits uploads to <code>manage_options</code> users. Enable the restriction unless editors need to upload SVGs directly."
-        );
-        $this->guide_item(
-          "Font Uploads",
-          "Enables OTF, TTF, WOFF, and WOFF2 uploads for use in Divi or custom <code>@font-face</code> declarations. Restrict to administrators in most cases."
-        );
-        $this->guide_item(
-          "Lottie Uploads",
-          "Enables <code>.json</code> and <code>.lottie</code> animation files in the Media Library. Restrict to administrators unless editors manage their own animation assets."
-        );
-        echo "</div>";
       }
     );
 
     // ── Performance ───────────────────────────────────────────
     $this->card(
       "Performance",
-      "Gutenberg, query, image, and revision optimizations.",
+      "Gutenberg, query, image, revision, heartbeat, and media upload settings.",
       function () {
         $this->section_label("Block Editor (Gutenberg)");
         echo '<div class="cdg-guide-body cdg-guide-group">';
@@ -2197,33 +2077,38 @@ class CDG_Core_Admin
           "Caps the number of revisions WordPress saves per post. 5 revisions is a reasonable default that preserves meaningful history without accumulating thousands of rows for frequently edited pages. This setting overrides any <code>WP_POST_REVISIONS</code> constant defined in <code>wp-config.php</code>."
         );
         echo "</div>";
-      }
-    );
 
-    // ── Gravity Forms ─────────────────────────────────────────
-    $this->card(
-      "Gravity Forms",
-      "Divi compatibility fixes and automatic form page generation.",
-      function () {
+        $this->section_label("Heartbeat");
         echo '<div class="cdg-guide-body cdg-guide-group">';
         $this->guide_item(
-          "Enable Compatibility Fixes",
-          'Prevents Divi\'s script optimization from deferring Gravity Forms scripts on pages that contain a form. Without this fix, GF forms display but throw a "gf_global is not defined" JavaScript error and submission fails.'
+          "Admin Heartbeat",
+          "Controls how often the browser polls the server in admin pages. The default of 15 seconds is aggressive. 60 seconds is recommended for most sites; it still supports autosave and session keepalive with much less server load."
         );
         $this->guide_item(
-          "Detection Mode: Auto-detect",
-          'Scans each page\'s content for Gravity Forms shortcodes and Divi GF Styler modules and applies the fix only on those pages. Recommended for most sites.'
+          "Frontend Heartbeat",
+          "The heartbeat API runs on the front end by default, serving no practical purpose on most sites. Disabled is recommended unless a theme or plugin requires it."
         );
         $this->guide_item(
-          "Detection Mode: Manual only",
-          "Applies the fix only to the page slugs listed in the Additional Pages field. Use this if auto-detect causes issues on a specific site or for precise control."
-        );
-        $this->guide_item(
-          "Auto-Generate Form Page",
-          'When creating a new form, the "Add New Form" flyout includes an "Auto-Generate Form Page" checkbox. When checked, CDG Core automatically creates a published page under <code>/forms/</code> pre-loaded with a Divi 5 GF Styler module pointing at the new form. A "View Form Page" button is injected into the form editor toolbar so you can jump to the page immediately.'
+          "Divi Builder Exception",
+          "Keeps the heartbeat active while the Divi visual builder is open even if the admin heartbeat is otherwise throttled or disabled. Divi relies on the heartbeat for builder session management."
         );
         echo "</div>";
-        echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Auto-generated form pages use the <code>cdg_form</code> custom post type. They are deleted (moved to Trash) automatically when the associated Gravity Forms form is deleted.</span></div>';
+
+        $this->section_label("Media &amp; Uploads");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "SVG Uploads",
+          "Allows SVG and SVGZ files in the Media Library with preview support and automatic dimension detection. The Restrict to Administrators option limits uploads to <code>manage_options</code> users. Enable the restriction unless editors need to upload SVGs directly."
+        );
+        $this->guide_item(
+          "Font Uploads",
+          "Enables OTF, TTF, WOFF, and WOFF2 uploads for use in Divi or custom <code>@font-face</code> declarations. Restrict to administrators in most cases."
+        );
+        $this->guide_item(
+          "Lottie Uploads",
+          "Enables <code>.json</code> and <code>.lottie</code> animation files in the Media Library. Restrict to administrators unless editors manage their own animation assets."
+        );
+        echo "</div>";
       }
     );
 
