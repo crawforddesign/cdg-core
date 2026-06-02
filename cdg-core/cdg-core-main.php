@@ -356,6 +356,9 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
     if ($theme_color_mode !== "disabled") {
       add_action("wp_head", [$this, "output_theme_color_meta"], 1);
     }
+
+    // Developer tag in page source
+    add_action("wp_head", [$this, "output_developer_tag"], 1);
   }
 
   /**
@@ -483,6 +486,26 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
       '</style>' . "\n",
       esc_url($url)
     );
+  }
+
+  /**
+   * Output developer tag HTML comment in page source.
+   *
+   * @return void
+   */
+  public function output_developer_tag(): void
+  {
+    echo "\n<!--\n\n";
+    echo "  Developed by\n\n";
+    echo "   ██████╗██████╗  ██████╗ \n";
+    echo "  ██╔════╝██╔══██╗██╔════╝ \n";
+    echo "  ██║     ██║  ██║██║  ███╗\n";
+    echo "  ██║     ██║  ██║██║   ██║\n";
+    echo "  ╚██████╗██████╔╝╚██████╔╝\n";
+    echo "   ╚═════╝╚═════╝  ╚═════╝ \n\n";
+    echo "  Crawford Design Group\n";
+    echo "  https://crawforddesigngroup.com\n\n";
+    echo "-->\n";
   }
 
   /**
