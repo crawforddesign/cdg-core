@@ -1792,7 +1792,7 @@ class CDG_Core_Admin
       $location = "head";
     }
 
-    $show_location = in_array($type, ["js", "html"], true);
+    $show_location = in_array($type, ["css", "js", "html"], true);
     $loc_style     = $show_location ? "" : ' style="display:none;"';
 
     echo '<div class="cdg-snippet-item">';

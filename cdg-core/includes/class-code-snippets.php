@@ -39,7 +39,7 @@ class CDG_Core_Code_Snippets
 
   public function inject_head(): void
   {
-    foreach ($this->active("css") as $s) {
+    foreach ($this->active("css", "head") as $s) {
       echo "\n<style>\n" . $s["code"] . "\n</style>\n"; // phpcs:ignore WordPress.Security.EscapeOutput
     }
     foreach ($this->active("js", "head") as $s) {
@@ -52,6 +52,9 @@ class CDG_Core_Code_Snippets
 
   public function inject_footer(): void
   {
+    foreach ($this->active("css", "footer") as $s) {
+      echo "\n<style>\n" . $s["code"] . "\n</style>\n"; // phpcs:ignore WordPress.Security.EscapeOutput
+    }
     foreach ($this->active("js", "footer") as $s) {
       echo "\n<script>\n" . $s["code"] . "\n</script>\n"; // phpcs:ignore WordPress.Security.EscapeOutput
     }
