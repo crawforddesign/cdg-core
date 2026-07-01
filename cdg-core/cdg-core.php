@@ -1,14 +1,16 @@
 <?php
 /**
- * CDG Core - Must-Use Plugin
- *
- * WordPress optimizations, security hardening, and agency features
- * for Crawford Design Group client sites.
+ * Plugin Name: CDG Core
+ * Plugin URI: https://crawforddesigngroup.com
+ * Description: WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
+ * Version: 1.7.0
+ * Requires at least: 6.0
+ * Requires PHP: 8.0
+ * Author: Crawford Design Group
+ * Author URI: https://crawforddesigngroup.com
+ * Text Domain: cdg-core
  *
  * @package CDG_Core
- * @version 1.6.5
- * @author Crawford Design Group
- * @link https://crawforddesigngroup.com
  */
 
 // Prevent direct access
@@ -19,7 +21,7 @@ if (!defined("ABSPATH")) {
 /**
  * Plugin Constants
  */
-define("CDG_CORE_VERSION", "1.6.5");
+define("CDG_CORE_VERSION", "1.7.0");
 define("CDG_CORE_DIR", plugin_dir_path(__FILE__));
 define("CDG_CORE_URL", plugin_dir_url(__FILE__));
 define("CDG_CORE_BASENAME", plugin_basename(__FILE__));
@@ -244,10 +246,18 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
   {
     $installed_version = get_option("cdg_core_version", "0.0.0");
 
-    if (version_compare($installed_version, CDG_CORE_VERSION, "<")) {
+    // Re-run activation tasks on version bumps, and also when the
+    // plugin-activation hook flagged a pending rewrite-rule flush (e.g.
+    // after a deactivate/reactivate cycle where the version is unchanged).
+    $needs_activation =
+      version_compare($installed_version, CDG_CORE_VERSION, "<") ||
+      get_option("cdg_core_flush_rewrite_rules", false);
+
+    if ($needs_activation) {
       // Schedule activation tasks for 'init' hook when WordPress is fully loaded
       add_action("init", [$this, "run_activation"], 0);
       update_option("cdg_core_version", CDG_CORE_VERSION);
+      delete_option("cdg_core_flush_rewrite_rules");
     }
   }
 
@@ -497,12 +507,11 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
   {
     echo "\n<!--\n\n";
     echo "  Developed by\n\n";
-    echo "   ██████╗██████╗  ██████╗ \n";
-    echo "  ██╔════╝██╔══██╗██╔════╝ \n";
-    echo "  ██║     ██║  ██║██║  ███╗\n";
-    echo "  ██║     ██║  ██║██║   ██║\n";
-    echo "  ╚██████╗██████╔╝╚██████╔╝\n";
-    echo "   ╚═════╝╚═════╝  ╚═════╝ \n\n";
+    echo "    ___  ____   ____  \n";
+    echo "   / __||  _ \ / ___| \n";
+    echo "  | |   | | | | |  _  \n";
+    echo "  | |___| |_| | |_| | \n";
+    echo "   \____|____/ \____| \n\n";
     echo "  Crawford Design Group\n";
     echo "  https://crawforddesigngroup.com\n\n";
     echo "-->\n";
@@ -594,6 +603,27 @@ add_action(
   },
   5
 );
+
+/**
+ * Plugin activation
+ *
+ * Flags a pending rewrite-rule flush. The actual flush happens on the next
+ * 'init' (see CDG_Core::check_version()) so post types are registered first.
+ *
+ * @return void
+ */
+register_activation_hook(__FILE__, function (): void {
+  update_option("cdg_core_flush_rewrite_rules", true);
+});
+
+/**
+ * Plugin deactivation
+ *
+ * @return void
+ */
+register_deactivation_hook(__FILE__, function (): void {
+  flush_rewrite_rules();
+});
 
 /**
  * Helper function to get CDG Core instance
