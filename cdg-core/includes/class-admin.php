@@ -39,10 +39,6 @@ class CDG_Core_Admin
       return;
     }
 
-    // SpinupWP (and similar Nginx configs) block direct HTTP access to
-    // /wp-content/mu-plugins/ for security. Rather than link external files
-    // that return 404, we read the files from disk via PHP (no HTTP involved)
-    // and output them inline. PHP can always read its own files.
     $css_path = CDG_CORE_DIR . "admin/css/admin-style.css";
     $js_path = CDG_CORE_DIR . "admin/js/admin-script.js";
 
@@ -1891,7 +1887,7 @@ class CDG_Core_Admin
     // ── Overview ──────────────────────────────────────────────
     $this->card("About CDG Core", "", function () {
       echo '<div class="cdg-guide-body">';
-      echo '<p class="cdg-guide-intro">CDG Core is a must-use plugin that handles WordPress optimization, security hardening, and agency-specific features for Crawford Design Group client sites. It loads automatically from the <code>mu-plugins</code> directory and cannot be disabled from the Plugins page.</p>';
+      echo '<p class="cdg-guide-intro">CDG Core handles WordPress optimization, security hardening, and agency-specific features for Crawford Design Group client sites.</p>';
       echo '<p class="cdg-guide-intro" style="margin-top:10px;">Settings are organized into tabs in the left sidebar. The Security Audit is a separate read-only tool available under <a class="cdg-guide-link" href="' .
         esc_url(admin_url("tools.php?page=cdg-security-audit")) .
         '">Tools &rsaquo; Security Audit</a>.</p>';
@@ -2168,7 +2164,7 @@ class CDG_Core_Admin
           "Hide maintenance, security, or developer plugins from specific client accounts to keep the dashboard uncluttered and reduce the risk of accidental deactivation."
         );
         echo "</div>";
-        echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>CDG Core itself is an mu-plugin and does not appear in the Plugin Page Visibility list. The Admin Sidebar list is populated on your first dashboard visit after activating a plugin.</span></div>';
+        echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>The Admin Sidebar list is populated on your first dashboard visit after activating a plugin.</span></div>';
       }
     );
 

@@ -1,8 +1,8 @@
-# CDG Core - Must-Use Plugin
+# CDG Core
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.6.5
+## Version 1.7.0
 
 ### Requirements
 
@@ -13,8 +13,8 @@ WordPress optimizations, security hardening, and agency features for Crawford De
 
 ### Installation
 
-1. Upload `cdg-core/` folder to `/wp-content/mu-plugins/`
-2. Upload `cdg-core.php` to `/wp-content/mu-plugins/`
+1. Upload the `cdg-core/` folder to `/wp-content/plugins/`
+2. Activate **CDG Core** from the Plugins page
 3. Visit **Settings > CDG Core** to configure
 
 ### Features
@@ -36,10 +36,9 @@ WordPress optimizations, security hardening, and agency features for Crawford De
 ### File Structure
 
 ```
-mu-plugins/
-+-- cdg-core.php                      <- Loader file
+plugins/
 +-- cdg-core/
-    +-- cdg-core-main.php             <- Main plugin file
+    +-- cdg-core.php                  <- Main plugin file
     +-- README.md
     +-- includes/
     |   +-- class-admin.php           <- Admin UI & settings
@@ -198,6 +197,13 @@ GITHUB_TOKEN="your_token" ./deploy-cdg-core.sh development
 ```
 
 ### Changelog
+
+#### 1.7.0
+
+- Converted from a must-use plugin to a standard plugin (install to `/wp-content/plugins/`, activate from the Plugins page)
+- Merged loader file into the main plugin file (`cdg-core.php`), which now carries a standard plugin header
+- Added `register_activation_hook()` / `register_deactivation_hook()` to flush rewrite rules on activation/deactivation
+- Updated in-admin guide copy that referenced mu-plugin behavior
 
 #### 1.6.5
 
