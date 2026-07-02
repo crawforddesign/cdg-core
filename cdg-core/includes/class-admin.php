@@ -318,7 +318,12 @@ class CDG_Core_Admin
           if (!in_array($location, ["head", "footer"], true)) {
             $location = "head";
           }
+          $id = sanitize_text_field((string) ($item['id'] ?? ''));
+          if ($id === '') {
+            $id = wp_generate_uuid4();
+          }
           $snippets[] = [
+            "id"          => $id,
             "title"       => sanitize_text_field($item["title"] ?? ""),
             "description" => sanitize_text_field($item["description"] ?? ""),
             // wp_unslash() is correct here: WordPress applies add_magic_quotes()
@@ -1774,6 +1779,7 @@ class CDG_Core_Admin
   private function render_snippet_row($index, array $snippet): void
   {
     $active   = !empty($snippet["active"]);
+    $id       = esc_attr($snippet["id"] ?? "");
     $title    = esc_attr($snippet["title"] ?? "");
     $desc     = esc_attr($snippet["description"] ?? "");
     $type     = $snippet["type"] ?? "css";
@@ -1792,6 +1798,7 @@ class CDG_Core_Admin
     $loc_style     = $show_location ? "" : ' style="display:none;"';
 
     echo '<div class="cdg-snippet-item">';
+    echo '<input type="hidden" name="code_snippets[' . $idx . '][id]" value="' . $id . '">';
 
     // Active + title + type
     echo '<div class="cdg-snippet-top-row">';

@@ -331,6 +331,9 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
     // Code Snippets — always instantiated; class checks active flag per snippet.
     new CDG_Core_Code_Snippets($this);
 
+    // Dash Sync — REST API for CDG Dash snippet push. No-op if bootstrap constant absent.
+    new CDG_Core_Dash_Sync($this);
+
     // Admin
     if (is_admin()) {
       new CDG_Core_Admin($this);
