@@ -145,6 +145,7 @@ final class CDG_Core
 
     // Code Snippets
     "code_snippets" => [],
+    "dash_bootstrap_token" => "",
 
     // Sidebar management
     "sidebar_entry_names"  => [],   // menu_slug => display_name (global rename)

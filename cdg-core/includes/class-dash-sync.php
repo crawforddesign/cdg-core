@@ -88,8 +88,14 @@ class CDG_Core_Dash_Sync
 
   public function handle_register( WP_REST_Request $request ): WP_REST_Response|WP_Error
   {
-    if ( ! defined( self::BOOTSTRAP_CONSTANT ) ) {
-      return new WP_Error( 'cdg_no_token', 'CDG_CORE_DASH_BOOTSTRAP constant is not defined.', [ 'status' => 403 ] );
+    // wp-config constant takes precedence if set (filesystem-level trust);
+    // otherwise fall back to the token pasted into Settings > CDG Core > Code Snippets.
+    $expected_token = defined( self::BOOTSTRAP_CONSTANT )
+      ? (string) constant( self::BOOTSTRAP_CONSTANT )
+      : (string) ( $this->plugin->get_settings()['dash_bootstrap_token'] ?? '' );
+
+    if ( $expected_token === '' ) {
+      return new WP_Error( 'cdg_no_token', 'No bootstrap token configured. Set CDG_CORE_DASH_BOOTSTRAP or paste one under Settings > CDG Core > Code Snippets.', [ 'status' => 403 ] );
     }
 
     if ( get_option( self::OPTION_KEY_HASH, '' ) !== '' ) {
@@ -97,14 +103,21 @@ class CDG_Core_Dash_Sync
     }
 
     $provided_token = sanitize_text_field( (string) $request->get_param( 'bootstrap_token' ) );
-    $expected_token = constant( self::BOOTSTRAP_CONSTANT );
 
-    if ( empty( $provided_token ) || ! hash_equals( (string) $expected_token, $provided_token ) ) {
+    if ( empty( $provided_token ) || ! hash_equals( $expected_token, $provided_token ) ) {
       return new WP_Error( 'cdg_bad_token', 'Invalid bootstrap token.', [ 'status' => 403 ] );
     }
 
     $api_key = bin2hex( random_bytes( 32 ) );
     update_option( self::OPTION_KEY_HASH, hash( 'sha256', $api_key ), false );
+
+    // Clear the token from settings now that it's been used — it's single-use
+    // and there's no reason to keep it sitting in the options row afterward.
+    $settings = $this->plugin->get_settings();
+    if ( ! empty( $settings['dash_bootstrap_token'] ) ) {
+      $settings['dash_bootstrap_token'] = '';
+      $this->plugin->update_settings( $settings );
+    }
 
     return new WP_REST_Response( [ 'api_key' => $api_key ], 200 );
   }

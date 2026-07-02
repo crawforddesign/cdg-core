@@ -338,6 +338,9 @@ class CDG_Core_Admin
           ];
         }
         $s["code_snippets"] = $snippets;
+        $s["dash_bootstrap_token"] = sanitize_text_field(
+          $input["dash_bootstrap_token"] ?? ""
+        );
         break;
 
       case "admin":
@@ -1726,6 +1729,30 @@ class CDG_Core_Admin
   private function tab_snippets(array $s): void
   {
     $snippets = array_values((array) ($s["code_snippets"] ?? []));
+
+    $dash_registered = get_option("cdg_core_dash_api_key_hash", "") !== "";
+
+    $this->card(
+      "CDG Dash Sync",
+      "Connects this site to CDG Dash so snippets can be pushed centrally. Paste the bootstrap token shown in Dash when you add this site, then save.",
+      function () use ($dash_registered, $s) {
+        if ($dash_registered) {
+          $this->row(
+            "Status",
+            "This site is registered with CDG Dash. Delete the <code>cdg_core_dash_api_key_hash</code> option to reset and re-register.",
+            '<span class="cdg-badge cdg-badge-success">' . esc_html__("Registered", "cdg-core") . "</span>"
+          );
+        } else {
+          $this->row(
+            "Bootstrap Token",
+            "One-time token from Dash's \"Manage Sites\" panel. Used once to exchange for a permanent API key, then cleared automatically.",
+            '<input type="text" name="dash_bootstrap_token" value="' .
+              esc_attr($s["dash_bootstrap_token"] ?? "") .
+              '" class="cdg-input" style="width:420px;" autocomplete="off">'
+          );
+        }
+      }
+    );
 
     echo '<div class="cdg-notice cdg-notice-warn">' .
       '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' .
