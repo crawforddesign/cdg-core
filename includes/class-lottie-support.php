@@ -80,14 +80,7 @@ class CDG_Core_Lottie_Support
    */
   public function allow_lottie_upload(array $mimes): array
   {
-    if (!current_user_can("upload_files")) {
-      return $mimes;
-    }
-
-    if (
-      $this->plugin->get_setting("lottie_admin_only") &&
-      !current_user_can("manage_options")
-    ) {
+    if (!$this->current_user_can_upload_lottie()) {
       return $mimes;
     }
 
@@ -167,6 +160,12 @@ class CDG_Core_Lottie_Support
     ?array $mimes,
     $real_mime
   ): array {
+    // Mirror allow_lottie_upload()'s capability gate — see the equivalent
+    // note in CDG_Core_Font_Support::fix_font_mime_type().
+    if (!$this->current_user_can_upload_lottie()) {
+      return $data;
+    }
+
     $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 
     if (array_key_exists($ext, self::LOTTIE_MIMES)) {
@@ -175,6 +174,28 @@ class CDG_Core_Lottie_Support
     }
 
     return $data;
+  }
+
+  /**
+   * Whether the current user may upload Lottie files: needs the upload
+   * capability, plus manage_options when "Restrict to Administrators" is on.
+   *
+   * @return bool
+   */
+  private function current_user_can_upload_lottie(): bool
+  {
+    if (!current_user_can("upload_files")) {
+      return false;
+    }
+
+    if (
+      $this->plugin->get_setting("lottie_admin_only") &&
+      !current_user_can("manage_options")
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   /**

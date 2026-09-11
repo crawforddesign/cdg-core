@@ -33,16 +33,32 @@ class CDG_Core_Admin
     );
   }
 
+  /**
+   * Screens that get the CDG Core design system. The settings page needs the
+   * full bundle; the Documentation viewer and category archive are read-only
+   * screens that use the same CSS but none of the settings-form JS, so they
+   * take the stylesheet alone.
+   */
+  private const STYLED_HOOKS = [
+    "settings_page_cdg-core-settings",
+    "tools_page_cdg-view-doc",
+    "admin_page_cdg-doc-category",
+  ];
+
   public function enqueue_assets(string $hook): void
   {
-    if ($hook !== "settings_page_cdg-core-settings") {
+    if (!in_array($hook, self::STYLED_HOOKS, true)) {
       return;
     }
+
+    $is_settings_page = $hook === "settings_page_cdg-core-settings";
 
     $css_path = CDG_CORE_DIR . "admin/css/admin-style.css";
     $js_path = CDG_CORE_DIR . "admin/js/admin-script.js";
 
-    wp_enqueue_media();
+    if ($is_settings_page) {
+      wp_enqueue_media();
+    }
 
     if (file_exists($css_path)) {
       // Register with src=false so WP outputs only the inline <style>, no <link>.
@@ -51,7 +67,7 @@ class CDG_Core_Admin
       wp_add_inline_style("cdg-core-admin", file_get_contents($css_path)); // phpcs:ignore WordPress.WP.AlternativeFunctions
     }
 
-    if (file_exists($js_path)) {
+    if ($is_settings_page && file_exists($js_path)) {
       // Same pattern for JS: register with src=false, then inject inline.
       wp_register_script("cdg-core-admin", false, [], false, true);
       wp_enqueue_script("cdg-core-admin");
@@ -140,17 +156,6 @@ class CDG_Core_Admin
 
     switch ($tab) {
       case "features":
-        $s["enable_documentation"] = !empty($input["enable_documentation"]);
-        $s["show_documentation_widgets"] = !empty(
-          $input["show_documentation_widgets"]
-        );
-        $s["documentation_module_style"] = sanitize_text_field(
-          $input["documentation_module_style"] ?? "informative"
-        );
-        $s["documentation_widget_limit"] = absint(
-          $input["documentation_widget_limit"] ?? 5
-        );
-
         $s["enable_cpt_widgets"] = !empty($input["enable_cpt_widgets"]);
         $s["cpt_module_style"] = sanitize_text_field(
           $input["cpt_module_style"] ?? "informative"
@@ -163,16 +168,29 @@ class CDG_Core_Admin
         $s["recent_posts_limit"] = absint($input["recent_posts_limit"] ?? 3);
         break;
 
+      case "documentation":
+        $s["enable_documentation"] = !empty($input["enable_documentation"]);
+        $s["show_documentation_widgets"] = !empty(
+          $input["show_documentation_widgets"]
+        );
+        $s["documentation_module_style"] = sanitize_text_field(
+          $input["documentation_module_style"] ?? "informative"
+        );
+        $s["documentation_widget_limit"] = absint(
+          $input["documentation_widget_limit"] ?? 5
+        );
+        break;
+
       case "cleanup":
         $s["disable_comments"] = !empty($input["disable_comments"]);
         $s["hide_divi_projects"] = !empty($input["hide_divi_projects"]);
 
         $s["enable_post_rename"] = !empty($input["enable_post_rename"]);
         $s["post_rename_singular"] = sanitize_text_field(
-          $input["post_rename_singular"] ?? "Post"
+          wp_unslash((string) ($input["post_rename_singular"] ?? "Post"))
         );
         $s["post_rename_plural"] = sanitize_text_field(
-          $input["post_rename_plural"] ?? "Posts"
+          wp_unslash((string) ($input["post_rename_plural"] ?? "Posts"))
         );
         $s["post_rename_icon"] = sanitize_html_class(
           preg_replace(
@@ -272,7 +290,7 @@ class CDG_Core_Admin
         $entry_names = [];
         foreach ((array) ($input["sidebar_entry_names"] ?? []) as $slug => $name) {
           $slug = sanitize_text_field($slug);
-          $name = sanitize_text_field($name);
+          $name = sanitize_text_field(wp_unslash((string) $name));
           if ($name !== "" && in_array($slug, $captured_slugs, true)) {
             $entry_names[$slug] = $name;
           }
@@ -308,7 +326,7 @@ class CDG_Core_Admin
           $valid_sub_slugs = array_keys($captured_items[$parent]["submenu"] ?? []);
           foreach ((array) $subs as $sub_slug => $name) {
             $sub_slug = sanitize_text_field($sub_slug);
-            $name     = sanitize_text_field($name);
+            $name     = sanitize_text_field(wp_unslash((string) $name));
             if ($name !== "" && in_array($sub_slug, $valid_sub_slugs, true)) {
               $submenu_names[$parent][$sub_slug] = $name;
             }
@@ -348,7 +366,7 @@ class CDG_Core_Admin
           if (!is_array($item)) {
             continue;
           }
-          $title = sanitize_text_field($item["title"] ?? "");
+          $title = sanitize_text_field(wp_unslash((string) ($item["title"] ?? "")));
           if ($title === "") {
             continue;
           }
@@ -418,8 +436,8 @@ class CDG_Core_Admin
             $location = "head";
           }
           $snippets[] = [
-            "title"       => sanitize_text_field($item["title"] ?? ""),
-            "description" => sanitize_text_field($item["description"] ?? ""),
+            "title"       => sanitize_text_field(wp_unslash((string) ($item["title"] ?? ""))),
+            "description" => sanitize_text_field(wp_unslash((string) ($item["description"] ?? ""))),
             // wp_unslash() is correct here: WordPress applies add_magic_quotes()
             // to $_POST in wp-settings.php, so every backslash in the textarea
             // arrives doubled. wp_unslash() strips the extra layer before storage.
@@ -448,10 +466,10 @@ class CDG_Core_Admin
 
         $s["enable_admin_branding"] = !empty($input["enable_admin_branding"]);
         $s["admin_footer_text"] = wp_kses_post(
-          $input["admin_footer_text"] ?? ""
+          wp_unslash((string) ($input["admin_footer_text"] ?? ""))
         );
         $s["custom_admin_css"] = wp_strip_all_tags(
-          $input["custom_admin_css"] ?? ""
+          wp_unslash((string) ($input["custom_admin_css"] ?? ""))
         );
 
         $s["theme_color_mode"] = in_array(
@@ -494,6 +512,7 @@ class CDG_Core_Admin
 
     $tabs = [
       "features" => "Features",
+      "documentation" => "Documentation",
       "cleanup" => "WP Cleanup",
       "security" => "Security",
       "performance" => "Performance",
@@ -586,6 +605,9 @@ class CDG_Core_Admin
     switch ($tab) {
       case "features":
         $this->tab_features($s);
+        break;
+      case "documentation":
+        $this->tab_documentation($s);
         break;
       case "cleanup":
         $this->tab_cleanup($s);
@@ -775,6 +797,8 @@ class CDG_Core_Admin
     $icons = [
       "features" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
+      "documentation" =>
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
       "cleanup" =>
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>',
       "security" =>
@@ -802,62 +826,6 @@ class CDG_Core_Admin
 
   private function tab_features(array $s): void
   {
-    // Documentation
-    $this->card(
-      "Documentation System",
-      "Internal documentation post type with categorized dashboard widgets.",
-      function () use ($s) {
-        $this->row(
-          "Enable Documentation",
-          "Registers the <code>cdg_documentation</code> post type and taxonomies.",
-          $this->sw("enable_documentation", $s["enable_documentation"])
-        );
-
-        $sub_class = !$s["enable_documentation"] ? "cdg-disabled" : "";
-        echo '<div id="cdg-doc-sub-settings" class="' .
-          esc_attr($sub_class) .
-          '">';
-
-        $this->row(
-          "Show Dashboard Widgets",
-          "Display documentation articles on the WordPress dashboard.",
-          $this->sw(
-            "show_documentation_widgets",
-            $s["show_documentation_widgets"]
-          ),
-          true
-        );
-
-        $this->row(
-          "Widget Style",
-          "",
-          $this->radio_group(
-            "documentation_module_style",
-            [
-              "informative" => [
-                "Informative",
-                "One widget per documentation category",
-              ],
-              "minimal" => ["Minimal", "Single consolidated widget"],
-            ],
-            $s["documentation_module_style"]
-          ),
-          true
-        );
-
-        $this->row(
-          "Docs Per Widget",
-          "Maximum articles shown per dashboard widget (1–20).",
-          '<input type="number" name="documentation_widget_limit" value="' .
-            esc_attr($s["documentation_widget_limit"]) .
-            '" min="1" max="20" class="cdg-input cdg-input-sm">',
-          true
-        );
-
-        echo "</div>";
-      }
-    );
-
     // CPT Widgets
     $this->card(
       "CPT Dashboard Widgets",
@@ -938,6 +906,279 @@ class CDG_Core_Admin
 
         echo "</div>";
       }
+    );
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+   * TAB: DOCUMENTATION
+   * ═══════════════════════════════════════════════════════════ */
+
+  private function tab_documentation(array $s): void
+  {
+    // Settings for the post type and its dashboard widgets. Moved here from
+    // the Features tab — note sanitize_settings() has a matching
+    // "documentation" case, since it only ever writes the keys belonging to
+    // the submitted tab.
+    $this->card(
+      "Documentation System",
+      "Internal documentation post type with categorized dashboard widgets.",
+      function () use ($s) {
+        $this->row(
+          "Enable Documentation",
+          "Registers the <code>cdg_documentation</code> post type and taxonomies.",
+          $this->sw("enable_documentation", $s["enable_documentation"])
+        );
+
+        $sub_class = !$s["enable_documentation"] ? "cdg-disabled" : "";
+        echo '<div id="cdg-doc-sub-settings" class="' .
+          esc_attr($sub_class) .
+          '">';
+
+        $this->row(
+          "Show Dashboard Widgets",
+          "Display documentation articles on the WordPress dashboard.",
+          $this->sw(
+            "show_documentation_widgets",
+            $s["show_documentation_widgets"]
+          ),
+          true
+        );
+
+        $this->row(
+          "Widget Style",
+          "",
+          $this->radio_group(
+            "documentation_module_style",
+            [
+              "informative" => [
+                "Informative",
+                "One widget per documentation category",
+              ],
+              "minimal" => ["Minimal", "Single consolidated widget"],
+            ],
+            $s["documentation_module_style"]
+          ),
+          true
+        );
+
+        $this->row(
+          "Docs Per Widget",
+          "Maximum articles shown per dashboard widget (1–20).",
+          '<input type="number" name="documentation_widget_limit" value="' .
+            esc_attr($s["documentation_widget_limit"]) .
+            '" min="1" max="20" class="cdg-input cdg-input-sm">',
+          true
+        );
+
+        echo "</div>";
+      }
+    );
+
+
+    // Everything below manages the content itself. It only makes sense once
+    // the post type is actually registered, so it's skipped entirely when
+    // the feature is off rather than rendering links to 404s.
+    if (!$s["enable_documentation"]) {
+      return;
+    }
+
+    $this->doc_articles_card();
+    $this->doc_categories_card();
+  }
+
+  /**
+   * List every documentation article with edit/view links, plus an Add New
+   * button. Replaces the Tools > Documentation list screen, which no longer
+   * has a menu entry of its own.
+   */
+  private function doc_articles_card(): void
+  {
+    $post_type = CDG_Core_Documentation::POST_TYPE;
+    $add_new   = admin_url("post-new.php?post_type=" . $post_type);
+    $all_url   = admin_url("edit.php?post_type=" . $post_type);
+
+    $docs = get_posts([
+      "post_type"        => $post_type,
+      "post_status"      => ["publish", "draft", "pending", "private"],
+      "numberposts"      => 50,
+      "orderby"          => "modified",
+      "order"            => "DESC",
+      "suppress_filters" => false,
+    ]);
+
+    $badge =
+      '<a href="' .
+      esc_url($add_new) .
+      '" class="cdg-btn cdg-btn-primary cdg-btn-sm">' .
+      esc_html__("Add New", "cdg-core") .
+      "</a>";
+
+    $this->card(
+      "Articles",
+      "Documentation articles on this site, most recently edited first.",
+      function () use ($docs, $post_type, $all_url) {
+        if (empty($docs)) {
+          echo '<div class="cdg-snippets-empty">' .
+            esc_html__(
+              "No documentation articles yet.",
+              "cdg-core"
+            ) .
+            "</div>";
+          return;
+        }
+
+        echo '<div class="cdg-doc-table">';
+        foreach ($docs as $doc) {
+          $terms = get_the_terms($doc->ID, CDG_Core_Documentation::TAXONOMY);
+          $cats  = [];
+          if (is_array($terms)) {
+            foreach ($terms as $term) {
+              $cats[] = $term->name;
+            }
+          }
+
+          echo '<div class="cdg-doc-row">';
+
+          echo '<div class="cdg-doc-main">';
+          echo '<div class="cdg-doc-title">' .
+            esc_html(
+              $doc->post_title !== ""
+                ? $doc->post_title
+                : __("(no title)", "cdg-core")
+            ) .
+            "</div>";
+          echo '<div class="cdg-doc-meta">';
+          if ($doc->post_status !== "publish") {
+            echo '<span class="cdg-doc-status">' .
+              esc_html(get_post_status_object($doc->post_status)->label ?? $doc->post_status) .
+              "</span>";
+          }
+          if (!empty($cats)) {
+            echo "<span>" . esc_html(implode(", ", $cats)) . "</span>";
+          }
+          echo "<span>" .
+            esc_html(
+              sprintf(
+                /* translators: %s: human-readable date */
+                __("Updated %s", "cdg-core"),
+                get_the_modified_date(get_option("date_format"), $doc)
+              )
+            ) .
+            "</span>";
+          echo "</div>";
+          echo "</div>";
+
+          echo '<div class="cdg-doc-actions">';
+          echo '<a class="cdg-btn cdg-btn-secondary cdg-btn-sm" href="' .
+            esc_url(
+              add_query_arg(
+                ["page" => "cdg-view-doc", "post_id" => $doc->ID],
+                admin_url("tools.php")
+              )
+            ) .
+            '">' .
+            esc_html__("View", "cdg-core") .
+            "</a>";
+          echo '<a class="cdg-btn cdg-btn-secondary cdg-btn-sm" href="' .
+            esc_url((string) get_edit_post_link($doc->ID, "raw")) .
+            '">' .
+            esc_html__("Edit", "cdg-core") .
+            "</a>";
+          echo "</div>";
+
+          echo "</div>";
+        }
+        echo "</div>";
+
+        if (count($docs) >= 50) {
+          echo '<div class="cdg-setting-hint" style="margin-top:12px;">' .
+            '<a href="' .
+            esc_url($all_url) .
+            '">' .
+            esc_html__(
+              "Showing the 50 most recently edited — open the full list screen.",
+              "cdg-core"
+            ) .
+            "</a></div>";
+        }
+      },
+      "",
+      "",
+      $badge
+    );
+  }
+
+  /**
+   * Category management, replacing the Tools > Categories submenu. Adding and
+   * renaming still happens on WordPress's own edit-tags.php screen — there is
+   * no value in reimplementing term editing here — so this lists the terms
+   * with their counts and links out.
+   */
+  private function doc_categories_card(): void
+  {
+    $taxonomy  = CDG_Core_Documentation::TAXONOMY;
+    $post_type = CDG_Core_Documentation::POST_TYPE;
+    $terms_url = admin_url(
+      "edit-tags.php?taxonomy=" . $taxonomy . "&post_type=" . $post_type
+    );
+
+    $terms = get_terms(["taxonomy" => $taxonomy, "hide_empty" => false]);
+    if (is_wp_error($terms)) {
+      $terms = [];
+    }
+
+    $badge =
+      '<a href="' .
+      esc_url($terms_url) .
+      '" class="cdg-btn cdg-btn-secondary cdg-btn-sm">' .
+      esc_html__("Manage", "cdg-core") .
+      "</a>";
+
+    $this->card(
+      "Categories",
+      "Each category gets its own dashboard widget when Widget Style is set to Informative.",
+      function () use ($terms, $post_type) {
+        if (empty($terms)) {
+          echo '<div class="cdg-snippets-empty">' .
+            esc_html__("No categories yet.", "cdg-core") .
+            "</div>";
+          return;
+        }
+
+        echo '<div class="cdg-doc-table">';
+        foreach ($terms as $term) {
+          echo '<div class="cdg-doc-row">';
+          echo '<div class="cdg-doc-main">';
+          echo '<div class="cdg-doc-title">' . esc_html($term->name) . "</div>";
+          echo '<div class="cdg-doc-meta"><span>' .
+            esc_html(
+              sprintf(
+                /* translators: %d: number of articles */
+                _n("%d article", "%d articles", (int) $term->count, "cdg-core"),
+                (int) $term->count
+              )
+            ) .
+            "</span></div>";
+          echo "</div>";
+          echo '<div class="cdg-doc-actions">';
+          echo '<a class="cdg-btn cdg-btn-secondary cdg-btn-sm" href="' .
+            esc_url(
+              add_query_arg(
+                ["post_type" => $post_type, $term->taxonomy => $term->slug],
+                admin_url("edit.php")
+              )
+            ) .
+            '">' .
+            esc_html__("View Articles", "cdg-core") .
+            "</a>";
+          echo "</div>";
+          echo "</div>";
+        }
+        echo "</div>";
+      },
+      "",
+      "",
+      $badge
     );
   }
 

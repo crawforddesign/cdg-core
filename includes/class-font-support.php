@@ -72,16 +72,7 @@ class CDG_Core_Font_Support
    */
   public function allow_font_upload(array $mimes): array
   {
-    // Only allow for users with upload capability
-    if (!current_user_can("upload_files")) {
-      return $mimes;
-    }
-
-    // Check if restricted to admins only
-    if (
-      $this->plugin->get_setting("font_admin_only") &&
-      !current_user_can("manage_options")
-    ) {
+    if (!$this->current_user_can_upload_fonts()) {
       return $mimes;
     }
 
@@ -111,6 +102,14 @@ class CDG_Core_Font_Support
     ?array $mimes,
     $real_mime
   ): array {
+    // Mirror allow_font_upload()'s capability gate. Without this check the
+    // filter would hand back a valid ext/type pair for a font file even when
+    // the uploader isn't permitted to upload one, which is enough for
+    // wp_handle_upload() to accept it — bypassing "Restrict to Administrators".
+    if (!$this->current_user_can_upload_fonts()) {
+      return $data;
+    }
+
     $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 
     if (array_key_exists($ext, self::FONT_MIMES)) {
@@ -119,6 +118,28 @@ class CDG_Core_Font_Support
     }
 
     return $data;
+  }
+
+  /**
+   * Whether the current user may upload font files: needs the upload
+   * capability, plus manage_options when "Restrict to Administrators" is on.
+   *
+   * @return bool
+   */
+  private function current_user_can_upload_fonts(): bool
+  {
+    if (!current_user_can("upload_files")) {
+      return false;
+    }
+
+    if (
+      $this->plugin->get_setting("font_admin_only") &&
+      !current_user_can("manage_options")
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   /**

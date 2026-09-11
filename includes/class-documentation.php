@@ -106,11 +106,11 @@ class CDG_Core_Documentation
             'hierarchical' => false,
             'public' => false,
             'show_ui' => true,
-            // Nested under Tools rather than its own top-level menu item —
-            // 'menu_position'/'menu_icon' are ignored once show_in_menu is a
-            // parent slug, so they're intentionally omitted rather than left
-            // in as dead config.
-            'show_in_menu' => 'tools.php',
+            // No menu entry of its own. Articles and categories are managed
+            // from the Documentation tab of CDG Core Settings, which links
+            // out to these native screens — show_ui stays true so post.php /
+            // post-new.php / edit.php keep working for those links.
+            'show_in_menu' => false,
             'show_in_admin_bar' => true,
             'can_export' => true,
             'has_archive' => false,
@@ -147,17 +147,13 @@ class CDG_Core_Documentation
             'show_ui' => true,
             'show_admin_column' => true,
             'show_in_rest' => false,
-            // Explicitly false rather than left at the default (true): WP
-            // core only ever reads a taxonomy's own show_in_menu from the
-            // per-post-type loop in wp-admin/menu.php, and that loop only
-            // runs for post types with their OWN top-level menu (show_in_menu
-            // === true, checked strictly). Since this post type is nested
-            // under Tools instead, that loop — and this value — are never
-            // reached; wp-includes/taxonomy.php has no add_submenu_page()
-            // call of its own (unlike post types, which get one via
-            // _add_post_type_submenus() in wp-includes/post.php). The
-            // Categories link is added manually below in add_viewer_pages()
-            // instead, the same way View Documentation is.
+            // No menu entry, matching the post type above: categories are
+            // managed from the Documentation tab of CDG Core Settings, which
+            // links out to edit-tags.php. show_ui stays true so that screen
+            // still renders. (This would be false in practice regardless —
+            // WP core only reads a taxonomy's show_in_menu from the
+            // per-post-type loop in wp-admin/menu.php, which runs only for
+            // post types holding their OWN top-level menu.)
             'show_in_menu' => false,
         ];
 
@@ -310,7 +306,13 @@ class CDG_Core_Documentation
         echo '<ul style="margin: 0;">';
         
         foreach ($docs as $doc) {
-            $view_url = admin_url('admin.php?page=cdg-view-doc&post_id=' . $doc->ID);
+            // The viewer is a submenu of Tools, so its hook is tools_page_* and
+            // admin.php?page= won't resolve it — only admin-page-parented
+            // screens (like cdg-doc-category below) work that way.
+            $view_url = add_query_arg(
+                ['page' => 'cdg-view-doc', 'post_id' => $doc->ID],
+                admin_url('tools.php')
+            );
             printf(
                 '<li style="margin-bottom: 8px;"><a href="%s" class="button" style="width: 100%%; text-align: left;">%s</a></li>',
                 esc_url($view_url),
@@ -328,36 +330,18 @@ class CDG_Core_Documentation
      */
     public function add_viewer_pages(): void
     {
-        // View documentation page. Parent must be 'tools.php' directly, not
-        // 'edit.php?post_type=' . self::POST_TYPE — that slug was only a
-        // valid top-level menu while the post type had its own top-level
-        // menu (show_in_menu === true). Since it's nested under Tools now,
-        // that slug is just another submenu entry, not a real menu key, so
-        // a submenu pointed at it is silently dropped from the sidebar.
+        // The viewer is the one documentation screen that stays in the Tools
+        // menu — it's a reading surface for the whole site, not an editing
+        // one, so it doesn't belong behind Settings with the rest. The list
+        // and category screens moved to the Documentation tab of CDG Core
+        // Settings (CDG_Core_Admin::tab_documentation()).
         add_submenu_page(
             'tools.php',
             __('View Documentation', 'cdg-core'),
-            __('View', 'cdg-core'),
+            __('Documentation', 'cdg-core'),
             'edit_posts',
             'cdg-view-doc',
             [$this, 'render_viewer']
-        );
-
-        // Categories screen. WordPress core has no automatic mechanism for
-        // this — see the 'show_in_menu' => false comment in
-        // register_taxonomy() above — so it's added by hand, pointed at the
-        // real edit-tags.php screen (no callback needed; that's a native WP
-        // admin page, not one of ours). Capability is read from the taxonomy
-        // itself rather than hardcoded, so it stays correct if that's ever
-        // customized; 'manage_categories' is register_taxonomy()'s own
-        // default and only used here as a defensive fallback.
-        $taxonomy = get_taxonomy(self::TAXONOMY);
-        add_submenu_page(
-            'tools.php',
-            __('Documentation Categories', 'cdg-core'),
-            __('Categories', 'cdg-core'),
-            $taxonomy ? $taxonomy->cap->manage_terms : 'manage_categories',
-            'edit-tags.php?taxonomy=' . self::TAXONOMY . '&post_type=' . self::POST_TYPE
         );
 
         // Hidden category archive page
@@ -379,40 +363,91 @@ class CDG_Core_Documentation
     public function render_viewer(): void
     {
         if (!isset($_GET['post_id'])) {
-            echo '<div class="wrap"><p>' . esc_html__('No documentation specified.', 'cdg-core') . '</p></div>';
+            $this->render_viewer_notice(__('No documentation specified.', 'cdg-core'));
             return;
         }
 
         $post_id = absint($_GET['post_id']);
         $post = get_post($post_id);
 
-        if (!$post || $post->post_type !== self::POST_TYPE) {
-            echo '<div class="wrap"><p>' . esc_html__('Documentation not found.', 'cdg-core') . '</p></div>';
+        // read_post is a meta capability, so map_meta_cap resolves it against
+        // the post's status and author — published docs stay readable by
+        // anyone with dashboard access, drafts and private docs don't. The
+        // message is deliberately identical to the wrong-post-type case so a
+        // guessed ID can't confirm that a doc exists.
+        if (
+            !$post ||
+            $post->post_type !== self::POST_TYPE ||
+            !current_user_can('read_post', $post_id)
+        ) {
+            $this->render_viewer_notice(__('Documentation not found.', 'cdg-core'));
             return;
         }
+
+        $terms = get_the_terms($post->ID, self::TAXONOMY);
         ?>
-        <div class="wrap">
-            <h1><?php echo esc_html($post->post_title); ?></h1>
-            
-            <p class="description">
-                <?php echo esc_html(sprintf(__('Last updated: %s', 'cdg-core'), get_the_modified_date('', $post))); ?>
-                
-                <?php if (current_user_can('manage_options')): ?>
-                    | <a href="<?php echo esc_url(admin_url('post.php?post=' . $post->ID . '&action=edit')); ?>">
-                        <?php esc_html_e('Edit', 'cdg-core'); ?>
-                    </a>
-                <?php endif; ?>
-            </p>
-            
-            <div class="card" style="max-width: 800px; padding: 20px;">
-                <?php echo wp_kses_post(apply_filters('the_content', $post->post_content)); ?>
+        <div class="wrap cdg-v2 cdg-doc-viewer">
+
+            <a class="cdg-doc-viewer-back" href="<?php echo esc_url(admin_url()); ?>">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                <?php esc_html_e('Back to Dashboard', 'cdg-core'); ?>
+            </a>
+
+            <div class="cdg-page-header">
+                <h1 class="cdg-doc-viewer-title"><?php echo esc_html($post->post_title); ?></h1>
+                <div class="cdg-doc-viewer-meta">
+                    <?php if (is_array($terms) && !empty($terms)): ?>
+                        <?php foreach ($terms as $term): ?>
+                            <span class="cdg-doc-status"><?php echo esc_html($term->name); ?></span>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    <span>
+                        <?php echo esc_html(
+                            sprintf(
+                                /* translators: %s: date the article was last modified */
+                                __('Updated %s', 'cdg-core'),
+                                get_the_modified_date(get_option('date_format'), $post)
+                            )
+                        ); ?>
+                    </span>
+                    <?php if (current_user_can('edit_post', $post->ID)): ?>
+                        <span>
+                            <a href="<?php echo esc_url((string) get_edit_post_link($post->ID, 'raw')); ?>">
+                                <?php esc_html_e('Edit article', 'cdg-core'); ?>
+                            </a>
+                        </span>
+                    <?php endif; ?>
+                </div>
             </div>
-            
-            <p style="margin-top: 20px;">
-                <a href="<?php echo esc_url(admin_url('edit.php?post_type=' . self::POST_TYPE)); ?>" class="button">
-                    ← <?php esc_html_e('Back to All Documentation', 'cdg-core'); ?>
-                </a>
-            </p>
+
+            <div class="cdg-card">
+                <div class="cdg-card-body">
+                    <div class="cdg-doc-prose">
+                        <?php echo wp_kses_post(apply_filters('the_content', $post->post_content)); ?>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <?php
+    }
+
+    /**
+     * Empty/error state for the viewer, in the same visual language as the
+     * article view rather than a bare paragraph.
+     *
+     * @param string $message Already-translated message text.
+     * @return void
+     */
+    private function render_viewer_notice(string $message): void
+    {
+        ?>
+        <div class="wrap cdg-v2 cdg-doc-viewer">
+            <div class="cdg-card">
+                <div class="cdg-card-body">
+                    <div class="cdg-snippets-empty"><?php echo esc_html($message); ?></div>
+                </div>
+            </div>
         </div>
         <?php
     }
@@ -425,7 +460,7 @@ class CDG_Core_Documentation
     public function render_category_archive(): void
     {
         if (!isset($_GET['category'])) {
-            echo '<div class="wrap"><p>' . esc_html__('No category specified.', 'cdg-core') . '</p></div>';
+            $this->render_viewer_notice(__('No category specified.', 'cdg-core'));
             return;
         }
 
@@ -433,7 +468,7 @@ class CDG_Core_Documentation
         $category = get_term_by('slug', $category_slug, self::TAXONOMY);
 
         if (!$category) {
-            echo '<div class="wrap"><p>' . esc_html__('Category not found.', 'cdg-core') . '</p></div>';
+            $this->render_viewer_notice(__('Category not found.', 'cdg-core'));
             return;
         }
 
@@ -452,41 +487,59 @@ class CDG_Core_Documentation
             ],
         ]);
         ?>
-        <div class="wrap">
-            <h1><?php echo esc_html(sprintf(__('Documentation: %s', 'cdg-core'), $category->name)); ?></h1>
-            
+        <div class="wrap cdg-v2 cdg-doc-viewer">
+
+            <a class="cdg-doc-viewer-back" href="<?php echo esc_url(admin_url()); ?>">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                <?php esc_html_e('Back to Dashboard', 'cdg-core'); ?>
+            </a>
+
+            <div class="cdg-page-header">
+                <h1 class="cdg-doc-viewer-title"><?php echo esc_html($category->name); ?></h1>
+                <div class="cdg-doc-viewer-meta">
+                    <span><?php echo esc_html(
+                        sprintf(
+                            /* translators: %d: number of articles in the category */
+                            _n('%d article', '%d articles', count($docs), 'cdg-core'),
+                            count($docs)
+                        )
+                    ); ?></span>
+                </div>
+            </div>
+
             <?php if (empty($docs)): ?>
-                <p><?php esc_html_e('No documentation found in this category.', 'cdg-core'); ?></p>
+                <div class="cdg-card">
+                    <div class="cdg-card-body">
+                        <div class="cdg-snippets-empty">
+                            <?php esc_html_e('No documentation found in this category.', 'cdg-core'); ?>
+                        </div>
+                    </div>
+                </div>
             <?php else: ?>
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
+                <div class="cdg-doc-grid">
                     <?php foreach ($docs as $doc): ?>
-                        <div class="card" style="padding: 15px;">
-                            <h3 style="margin-top: 0;">
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=cdg-view-doc&post_id=' . $doc->ID)); ?>">
-                                    <?php echo esc_html($doc->post_title); ?>
+                        <div class="cdg-card">
+                            <div class="cdg-card-header">
+                                <div class="cdg-card-title"><?php echo esc_html($doc->post_title); ?></div>
+                                <?php if ($doc->post_excerpt): ?>
+                                    <p class="cdg-card-desc"><?php echo esc_html($doc->post_excerpt); ?></p>
+                                <?php endif; ?>
+                            </div>
+                            <div class="cdg-card-body">
+                                <a href="<?php echo esc_url(
+                                    add_query_arg(
+                                        ['page' => 'cdg-view-doc', 'post_id' => $doc->ID],
+                                        admin_url('tools.php')
+                                    )
+                                ); ?>" class="cdg-btn cdg-btn-primary cdg-btn-sm">
+                                    <?php esc_html_e('Read', 'cdg-core'); ?>
                                 </a>
-                            </h3>
-                            
-                            <?php if ($doc->post_excerpt): ?>
-                                <p><?php echo esc_html($doc->post_excerpt); ?></p>
-                            <?php endif; ?>
-                            
-                            <a href="<?php echo esc_url(admin_url('admin.php?page=cdg-view-doc&post_id=' . $doc->ID)); ?>" class="button button-primary">
-                                <?php esc_html_e('View', 'cdg-core'); ?>
-                            </a>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            
-            <p style="margin-top: 20px;">
-                <a href="<?php echo esc_url(admin_url('edit.php?post_type=' . self::POST_TYPE)); ?>" class="button">
-                    ← <?php esc_html_e('All Documentation', 'cdg-core'); ?>
-                </a>
-                <a href="<?php echo esc_url(admin_url()); ?>" class="button">
-                    <?php esc_html_e('Dashboard', 'cdg-core'); ?>
-                </a>
-            </p>
+
         </div>
         <?php
     }

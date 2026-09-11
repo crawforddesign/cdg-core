@@ -177,6 +177,25 @@ class CDG_Core_Autoload_Audit
     }
 
     /**
+     * Read the live autoload state for an option straight from the options
+     * table. Returns false for a missing option.
+     */
+    private function is_autoloaded(string $option_name): bool
+    {
+        global $wpdb;
+
+        $autoload = $wpdb->get_var(
+            $wpdb->prepare("SELECT autoload FROM {$wpdb->options} WHERE option_name = %s", $option_name)
+        );
+
+        if (null === $autoload) {
+            return false;
+        }
+
+        return !in_array((string) $autoload, self::NOT_AUTOLOADED_VALUES, true);
+    }
+
+    /**
      * @param array<string, string> $args Extra query args for the Tools page redirect.
      */
     private function redirect(array $args): void
@@ -198,7 +217,15 @@ class CDG_Core_Autoload_Audit
     private function set_autoload(string $option_name, bool $autoload): bool
     {
         if (function_exists('wp_set_option_autoload')) {
-            return wp_set_option_autoload($option_name, $autoload);
+            if (wp_set_option_autoload($option_name, $autoload)) {
+                return true;
+            }
+
+            // Core returns false when nothing was written, which includes the
+            // case where the column already holds the requested value. That's
+            // the desired end state, not a failure, so re-read and confirm
+            // rather than reporting an error the admin can't act on.
+            return $this->is_autoloaded($option_name) === $autoload;
         }
 
         global $wpdb;

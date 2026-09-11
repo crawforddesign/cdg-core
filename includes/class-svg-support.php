@@ -101,16 +101,7 @@ class CDG_Core_SVG_Support
      */
     public function allow_svg_upload(array $mimes): array
     {
-        // Only allow for users with upload capability
-        if (!current_user_can("upload_files")) {
-            return $mimes;
-        }
-
-        // Check if restricted to admins only
-        if (
-            $this->plugin->get_setting("svg_admin_only") &&
-            !current_user_can("manage_options")
-        ) {
+        if (!$this->current_user_can_upload_svg()) {
             return $mimes;
         }
 
@@ -118,6 +109,28 @@ class CDG_Core_SVG_Support
         $mimes["svgz"] = "image/svg+xml";
 
         return $mimes;
+    }
+
+    /**
+     * Whether the current user may upload SVGs: needs the upload capability,
+     * plus manage_options when "Restrict to Administrators" is on.
+     *
+     * @return bool
+     */
+    private function current_user_can_upload_svg(): bool
+    {
+        if (!current_user_can("upload_files")) {
+            return false;
+        }
+
+        if (
+            $this->plugin->get_setting("svg_admin_only") &&
+            !current_user_can("manage_options")
+        ) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -184,10 +197,22 @@ class CDG_Core_SVG_Support
      */
     private function sanitize_svg_content(string $content): ?string
     {
+        // Reject anything carrying a DOCTYPE outright. Entity declarations
+        // live there, and they're the vector for both XXE (pulling in local
+        // files) and billion-laughs expansion. A legitimate SVG export never
+        // needs one, so refusing is safer than trying to sanitize it.
+        if (preg_match('/<!DOCTYPE/i', $content)) {
+            return null;
+        }
+
         libxml_use_internal_errors(true);
 
         $doc = new \DOMDocument();
-        $loaded = $doc->loadXML($content, LIBXML_NONET | LIBXML_NOENT);
+
+        // LIBXML_NONET blocks network fetches. LIBXML_NOENT is deliberately
+        // NOT passed: despite the name it *enables* entity substitution,
+        // which is the opposite of what's wanted here.
+        $loaded = $doc->loadXML($content, LIBXML_NONET);
 
         libxml_clear_errors();
         libxml_use_internal_errors(false);
@@ -223,8 +248,13 @@ class CDG_Core_SVG_Support
                 foreach ($element->attributes as $attr) {
                     $attr_name = strtolower($attr->nodeName);
 
-                    // Event handlers
-                    if (in_array($attr_name, self::DANGEROUS_ATTRIBUTES, true)) {
+                    // Event handlers. The enumerated list is kept for
+                    // documentation, but the on* prefix test is what actually
+                    // catches them — including handlers not on the list.
+                    if (
+                        str_starts_with($attr_name, 'on') ||
+                        in_array($attr_name, self::DANGEROUS_ATTRIBUTES, true)
+                    ) {
                         $attrs_to_remove[] = $attr->nodeName;
                         continue;
                     }
@@ -275,6 +305,15 @@ class CDG_Core_SVG_Support
         ?array $mimes,
         $real_mime,
     ): array {
+        // Mirror allow_svg_upload()'s capability gate. Without this check the
+        // filter hands back a valid ext/type pair for an SVG even when the
+        // uploader isn't permitted to upload one — which is all
+        // wp_handle_upload() needs to accept the file, bypassing
+        // "Restrict to Administrators".
+        if (!$this->current_user_can_upload_svg()) {
+            return $data;
+        }
+
         $ext = pathinfo($filename, PATHINFO_EXTENSION);
 
         if (strtolower($ext) === "svg" || strtolower($ext) === "svgz") {

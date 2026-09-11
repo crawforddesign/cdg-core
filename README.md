@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.9.10
+## Version 1.9.13
 
 ### Requirements
 
@@ -70,17 +70,18 @@ plugins/
 
 ### Settings Tabs
 
-| Tab               | Description                                              |
-| ----------------- | -------------------------------------------------------- |
-| **Features**      | Documentation system, CPT widgets                        |
-| **Defaults**      | Comments, Divi Projects, Post renaming                   |
-| **WP Cleanup**    | Head cleanup, dashboard widgets, heartbeat               |
-| **Security**      | XML-RPC, uploads, X-Powered-By, SVG/Font/Lottie support  |
-| **Performance**   | Gutenberg, queries, images, revisions, transient cleanup |
-| **Gravity Forms** | Divi/GF compatibility fixes and auto-page generation     |
-| **Admin**         | Branding, theme color, custom CSS                        |
-| **Roles**         | Custom Agency / Manager / Staff roles; Agency auto-assigned by email |
-| **Sidebar**       | Rename/hide sidebar menu items and submenus per role, plus per-role Plugin Visibility |
+| Tab                | Description                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| **Features**       | CPT dashboard widgets                                                                 |
+| **Documentation**  | Documentation system settings, plus article and category management                   |
+| **WP Cleanup**     | Comments, Divi Projects, Post renaming, head cleanup, dashboard widgets               |
+| **Security**       | XML-RPC, dangerous uploads, X-Powered-By, code editor                                 |
+| **Performance**    | Gutenberg, queries, images, revisions, heartbeat, transient cleanup, SVG/Font/Lottie uploads |
+| **Admin**          | Branding, theme color, custom CSS, login page                                         |
+| **Roles**          | Custom Manager / Staff roles; Agency auto-assigned by email                           |
+| **Sidebar**        | Rename/hide sidebar menu items and submenus per role, plus per-role Plugin Visibility  |
+| **Code Snippets**  | Admin-managed CSS, JS, HTML, and PHP snippets                                          |
+| **Guide**          | In-admin reference for the plugin's features                                           |
 
 ### SpinupWP Compatibility
 
@@ -158,6 +159,18 @@ Supported formats: .json, .lottie
 - **Enable Lottie Uploads**: Disabled by default
 - **Restrict to Admins**: Enabled by default
 
+### Documentation Tab
+
+An internal documentation system for client sites: a `cdg_documentation` post type with its own categories, surfaced as dashboard widgets so editors see the guidance without hunting for it.
+
+Documentation has no sidebar menu entry of its own. Everything is managed from this tab:
+
+- **Documentation System** — enable/disable the post type, toggle the dashboard widgets, choose the widget style (Informative = one widget per category, Minimal = a single consolidated widget), and set how many articles each widget shows
+- **Articles** — the 50 most recently edited articles with status, categories, and last-modified date, plus View/Edit actions and an Add New button. Editing itself happens on WordPress's normal post editor
+- **Categories** — every category with its article count, linking out to the standard term editor
+
+The one documentation screen that isn't here is the **viewer**, which lives at **Tools → Documentation**. It's where the dashboard widgets link to, styled to match the rest of CDG Core rather than raw admin markup.
+
 ### Gravity Forms Tab
 
 #### Divi Compatibility Fixes
@@ -233,6 +246,17 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.9.13
+
+- **Documentation moved out of Tools into its own Settings tab.** The post type and its taxonomy no longer register a menu entry at all (`show_in_menu` is `false` for both); article and category management now live in a new **Documentation** tab in CDG Core Settings, which lists articles (with status, categories, and last-modified date) and categories (with article counts) and links out to WordPress's native edit screens for the actual editing. The documentation settings themselves — enable toggle, dashboard widgets, widget style, docs per widget — moved there from the Features tab. The **Documentation viewer** intentionally stays under Tools: it's a reading surface for the whole site rather than an editing one. It was relabeled from "View" to "Documentation" now that the list screen it used to sit beneath is gone.
+- Restyled the Documentation viewer and category archive in the CDG Core design system (`.cdg-v2`) instead of raw WordPress admin markup, including a scoped prose style for article content. The stylesheet is now enqueued on those two screens; the settings-form JS and media library are not, since neither has anything to do there.
+- Fixed the dashboard widgets' "view article" links, which pointed at `admin.php?page=cdg-view-doc`. The viewer is parented to `tools.php`, so its hook is `tools_page_*` and `admin.php` can't resolve it — only screens parented to an admin page (like the category archive) work that way. They now point at `tools.php?page=cdg-view-doc`.
+- Fixed an escaping bug where a Code Snippet's **Title** or **Description** gained an extra backslash before every apostrophe on each save. WordPress magic-quotes `$_POST`, and `sanitize_text_field()` doesn't strip slashes — only `wp_unslash()` does. The snippet `code` field already handled this; the two text fields didn't, so the slashes compounded indefinitely. Fixed the same omission in custom menu link titles, the Post rename singular/plural labels, sidebar entry and submenu renames, the admin footer text, and Custom Admin CSS (where it was mangling backslashes and quotes in stylesheets). Note this stops new slashes accumulating but doesn't clean values already saved — affected titles need to be re-typed once.
+- **Security:** the "Restrict to Administrators" toggle for SVG, font, and Lottie uploads could be bypassed. The `upload_mimes` filter checked capabilities correctly, but the paired `wp_check_filetype_and_ext` filter did not — it stamped a valid extension/MIME pair onto any matching file regardless of who was uploading, which is all `wp_handle_upload()` needs to accept it. Both filters now share one capability check.
+- **Security:** the SVG sanitizer passed `LIBXML_NOENT` to `DOMDocument::loadXML()`, which despite its name *enables* entity substitution — opting into the behavior behind XXE and billion-laughs expansion. Removed, and SVGs carrying a `DOCTYPE` are now rejected outright. Event-handler attributes are also stripped by `on*` prefix rather than a fixed list, which was missing handlers like `onmouseenter`, `onwheel`, and `onpointerdown`.
+- The Documentation viewer now checks `read_post` before rendering, so drafts and private articles aren't readable by anyone who can guess a post ID.
+- Tools → Autoloaded Options no longer reports "failed" when toggling an option that's already in the requested state — `wp_set_option_autoload()` returns `false` when nothing needed writing, which isn't a failure.
 
 #### 1.9.12
 
