@@ -247,6 +247,11 @@ Auto-updates are not enabled by default. If you want a given site to apply relea
 
 ### Changelog
 
+#### 1.9.14
+
+- Documentation tab: the Articles and Categories list rows now use the same `16px 20px` padding as setting rows elsewhere in Settings, instead of sitting flush against the card edges.
+- Documentation viewer: cards now carry 32px of padding on all sides, with the shared card header/body padding zeroed inside the viewer so the spacing stays exactly 32px.
+
 #### 1.9.13
 
 - **Documentation moved out of Tools into its own Settings tab.** The post type and its taxonomy no longer register a menu entry at all (`show_in_menu` is `false` for both); article and category management now live in a new **Documentation** tab in CDG Core Settings, which lists articles (with status, categories, and last-modified date) and categories (with article counts) and links out to WordPress's native edit screens for the actual editing. The documentation settings themselves — enable toggle, dashboard widgets, widget style, docs per widget — moved there from the Features tab. The **Documentation viewer** intentionally stays under Tools: it's a reading surface for the whole site rather than an editing one. It was relabeled from "View" to "Documentation" now that the list screen it used to sit beneath is gone.

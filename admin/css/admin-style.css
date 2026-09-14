@@ -1795,17 +1795,12 @@ textarea.cdg-input {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 0;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--cdg-border);
 }
 
 .cdg-doc-row:last-child {
   border-bottom: none;
-  padding-bottom: 0;
-}
-
-.cdg-doc-row:first-child {
-  padding-top: 0;
 }
 
 .cdg-doc-main {
@@ -1903,6 +1898,23 @@ textarea.cdg-input {
 
 .cdg-doc-viewer-meta a {
   color: var(--cdg-fg-2);
+}
+
+/* Viewer cards carry their own padding; inner header/body run edge to edge. */
+.cdg-doc-viewer .cdg-card {
+  padding: 32px;
+}
+
+.cdg-doc-viewer .cdg-card-header {
+  padding: 0 0 14px;
+}
+
+.cdg-doc-viewer .cdg-card-body {
+  padding: 0;
+}
+
+.cdg-doc-viewer .cdg-card-header + .cdg-card-body {
+  padding-top: 14px;
 }
 
 /* Article body. Scoped tightly so post content can't leak styles into the
