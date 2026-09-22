@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.9.13
+## Version 1.9.15
 
 ### Requirements
 
@@ -246,6 +246,12 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.9.15
+
+- **Fixed PHP code snippets silently failing when the pasted code included an opening `<?php` tag.** `eval()` parses its argument as PHP already, so a leading tag is a `ParseError` rather than a no-op — and because `run_php()` caught `\Throwable` and discarded it, such a snippet simply never ran, with nothing in the page, the error log, or the admin to say why. A leading `<?php` and a trailing `?>` are now stripped before evaluation. `<?=` is deliberately left alone: stripping it would silently discard an echo, so it still errors — but now it errors into the log.
+- **PHP snippet failures are now logged.** `run_php()` still catches `\Throwable` so a broken snippet can never white-screen a site, but it now writes the snippet's title, exception class, message, file, and line to `error_log()` instead of discarding it. A silently swallowed `ParseError` here was effectively undebuggable from the front end.
+- The Snippets admin now shows a note on PHP-type snippets: no opening tag is needed, they run on `init` during front-end page loads only (AJAX and REST are skipped so snippet output can't corrupt a JSON response), and the **Location** setting does not apply to them — `active("php")` is called without a location argument, so head/footer has never affected PHP snippets.
 
 #### 1.9.14
 
