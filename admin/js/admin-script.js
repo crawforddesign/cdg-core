@@ -133,11 +133,15 @@
       function initSnippetRow(row) {
         var typeSelect  = row.querySelector(".cdg-snippet-type");
         var locationRow = row.querySelector(".cdg-snippet-location-row");
+        var phpNote     = row.querySelector(".cdg-snippet-php-note");
 
         if (typeSelect && locationRow) {
           function syncLocation() {
             var t = typeSelect.value;
             locationRow.style.display = (t === "css" || t === "js" || t === "html") ? "" : "none";
+            if (phpNote) {
+              phpNote.style.display = (t === "php") ? "" : "none";
+            }
           }
           typeSelect.addEventListener("change", syncLocation);
           syncLocation();

@@ -72,11 +72,43 @@ class CDG_Core_Code_Snippets
     }
 
     foreach ($this->active("php") as $s) {
+      $code = self::strip_open_tag((string) ($s["code"] ?? ""));
+
+      if ($code === "") {
+        continue;
+      }
+
       try {
-        eval($s["code"]); // phpcs:ignore Squiz.PHP.Eval.Discouraged
+        eval($code); // phpcs:ignore Squiz.PHP.Eval.Discouraged
       } catch (\Throwable $e) {
-        // Swallow errors to prevent site lockout — admins should test PHP carefully.
+        // Still swallowed so a broken snippet can never white-screen the site,
+        // but it now leaves a trail. A silently discarded ParseError here is
+        // effectively undebuggable from the front end.
+        error_log(
+          sprintf(
+            'CDG Core: PHP snippet "%s" failed - %s: %s in %s on line %d',
+            $s["title"] ?? "untitled",
+            get_class($e),
+            $e->getMessage(),
+            $e->getFile(),
+            $e->getLine()
+          )
+        );
       }
     }
+  }
+
+  /**
+   * eval() parses its argument as PHP already, so a leading `<?php` tag is a
+   * ParseError rather than a no-op. Admins paste it out of habit, so strip it
+   * (and a trailing close tag) instead of failing on it.
+   */
+  private static function strip_open_tag(string $code): string
+  {
+    // Long-form tag only: stripping `<?=` would silently discard an echo.
+    $code = (string) preg_replace('/\A\s*<\?php\b/i', "", $code, 1);
+    $code = (string) preg_replace('/\?>\s*\z/', "", $code, 1);
+
+    return trim($code);
   }
 }

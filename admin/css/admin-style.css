@@ -1214,6 +1214,17 @@ textarea.cdg-input {
   flex-wrap: nowrap;
 }
 
+.cdg-snippet-php-note {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cdg-muted-fg);
+  background: var(--cdg-muted);
+  border: 1px solid var(--cdg-border);
+  border-radius: var(--cdg-radius);
+}
+
 .cdg-snippet-code {
   width: 100%;
   min-height: 120px;

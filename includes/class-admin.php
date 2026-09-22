@@ -2634,6 +2634,16 @@ class CDG_Core_Admin
     echo "</div>";
     echo "</div>";
 
+    // PHP-only note. eval() rejects an opening tag, which is an easy mistake
+    // to make, and it failed silently before the error log was added.
+    $php_style = $type === "php" ? "" : ' style="display:none;"';
+    echo '<p class="cdg-snippet-php-note"' . $php_style . ">";
+    echo esc_html__(
+      "Paste PHP without an opening <?php tag - the snippet is evaluated as PHP already, so a leading tag stops it from running. Runs on init during front-end page loads only (not AJAX or REST), so Location does not apply.",
+      "cdg-core"
+    );
+    echo "</p>";
+
     // Code
     echo '<textarea name="code_snippets[' .
       $idx .
