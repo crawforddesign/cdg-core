@@ -17,18 +17,20 @@
  * for stability — only the display labels changed.)
  *
  * CDG staff ("Agency") are handled separately, and deliberately are *not*
- * a cloned role: whichever account's email matches the configured "Agency
- * Email" (Roles tab) is automatically switched to WordPress's native
- * Administrator role — not a lookalike clone — on login, registration, and
- * profile edits, replacing whatever role it had. A cloned role (as Agency
- * used to be, pre-1.9.6) can carry every one of Administrator's WordPress
- * *capabilities* and still be invisible to a third-party plugin that gates
- * its own admin UI on the literal 'administrator' role slug rather than a
- * capability — which is exactly what broke the Gravity Forms menu for
- * Agency users. Real Administrator has no such gap. See is_agency_user()
- * for how the rest of the plugin (CDG_Core_Plugin_Visibility) still
- * exempts this account from Core's own sidebar/plugin-visibility hide
- * rules despite it now being an ordinary Administrator account.
+ * a cloned role: any account recognized as Agency (see is_agency_user()
+ * for the three signals — configured Agency Email match, the hard-coded
+ * default support@crawforddesigngp.com, or the cdgsupport username) is
+ * automatically switched to WordPress's native Administrator role — not a
+ * lookalike clone — on login, registration, and profile edits, replacing
+ * whatever role it had. A cloned role (as Agency used to be, pre-1.9.6)
+ * can carry every one of Administrator's WordPress *capabilities* and
+ * still be invisible to a third-party plugin that gates its own admin UI
+ * on the literal 'administrator' role slug rather than a capability —
+ * which is exactly what broke the Gravity Forms menu for Agency users.
+ * Real Administrator has no such gap. See is_agency_user() for how the
+ * rest of the plugin (CDG_Core_Plugin_Visibility) still exempts this
+ * account from Core's own sidebar/plugin-visibility hide rules despite it
+ * now being an ordinary Administrator account.
  *
  * Both toggle-driven behaviors below are off by default. Native roles
  * (administrator, editor, author, contributor, subscriber) always remain
@@ -51,6 +53,13 @@ class CDG_Core_Roles
 {
     public const CLIENT_MANAGER = 'cdg_client_manager';
     public const CLIENT_STAFF   = 'cdg_client_staff';
+
+    /**
+     * CDG's own support username. An account with this login is always
+     * treated as Agency — same email test below plus this — so a client
+     * site created without the support@... email can still be recognized.
+     */
+    public const AGENCY_USERNAME = 'cdgsupport';
 
     /**
      * Retired role slug from before 1.9.6, when Agency was a clone of
@@ -272,26 +281,48 @@ class CDG_Core_Roles
     }
 
     /**
-     * True if the given user's email matches the configured Agency Email
-     * and "Enable Custom Roles" is on. Used by CDG_Core_Plugin_Visibility
-     * to exempt the CDG staff account from Core's own sidebar/plugin
-     * visibility hide rules — necessary now that Agency is a plain
-     * Administrator account rather than a distinct role that could simply
-     * be left out of those rules' target-role list.
+     * True if the given user is a CDG staff account. Three signals count
+     * — any one is sufficient:
+     *
+     *   1. `user_email` matches the site's configured Agency Email
+     *      (Roles tab, defaults to DEFAULT_AGENCY_EMAIL).
+     *   2. `user_email` matches the hard-coded DEFAULT_AGENCY_EMAIL, even
+     *      if the site has changed the Agency Email setting to something
+     *      else — so support@crawforddesigngp.com always counts.
+     *   3. `user_login` is AGENCY_USERNAME (cdgsupport), case-insensitive
+     *      — so an account created with our support username but a
+     *      different email (e.g. a per-client alias) still counts.
+     *
+     * Used by CDG_Core_Plugin_Visibility to exempt the CDG staff account
+     * from every Sidebar-tab visibility rule. This check runs regardless
+     * of the "Enable Custom Roles" setting — CDG support should always be
+     * able to see the full sidebar and every installed plugin, whether or
+     * not the client site has opted in to CDG's custom role system.
      */
     public static function is_agency_user(WP_User $user, CDG_Core $plugin): bool
     {
-        if (!$plugin->get_setting('enable_custom_roles')) {
-            return false;
-        }
+        $email = trim((string) $user->user_email);
+        $login = trim((string) $user->user_login);
 
-        return strcasecmp(trim($user->user_email), trim(self::resolve_agency_email($plugin))) === 0;
+        if ($email !== '' && strcasecmp($email, trim(self::resolve_agency_email($plugin))) === 0) {
+            return true;
+        }
+        if ($email !== '' && strcasecmp($email, self::DEFAULT_AGENCY_EMAIL) === 0) {
+            return true;
+        }
+        if ($login !== '' && strcasecmp($login, self::AGENCY_USERNAME) === 0) {
+            return true;
+        }
+        return false;
     }
 
     /**
-     * Force plain Administrator onto the given user if their email matches
-     * the configured Agency Email, replacing whatever role(s) they
-     * currently have. No-op unless "Enable Custom Roles" is on.
+     * Force plain Administrator onto the given user if they're a recognized
+     * Agency account (see is_agency_user() for the three signals),
+     * replacing whatever role(s) they currently have. No-op unless "Enable
+     * Custom Roles" is on — the visibility bypass in is_agency_user() runs
+     * unconditionally, but automatically rewriting a user's role is a
+     * role-management concern that should stay gated on the Roles feature.
      */
     private function sync_agency_role(int $user_id): void
     {
@@ -304,7 +335,7 @@ class CDG_Core_Roles
             return;
         }
 
-        if (strcasecmp(trim($user->user_email), trim($this->agency_email())) !== 0) {
+        if (!self::is_agency_user($user, $this->plugin)) {
             return;
         }
 

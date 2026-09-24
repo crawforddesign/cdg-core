@@ -10,10 +10,13 @@
  * runtime.
  *
  * The CDG staff ("Agency") account is a plain Administrator account (see
- * CDG_Core_Roles::is_agency_user()) and would otherwise be caught by any
- * rule targeting Administrator. Every hide/visibility check below
- * explicitly exempts it first, so it always sees the full, unmodified
- * sidebar and every installed plugin, regardless of what's configured.
+ * CDG_Core_Roles::is_agency_user() for the three signals — configured
+ * Agency Email, hard-coded support@crawforddesigngp.com, or cdgsupport
+ * username) and would otherwise be caught by any rule targeting the
+ * Administrator role. Every hide/visibility check below explicitly
+ * exempts it first, so it always sees the full, unmodified sidebar and
+ * every installed plugin, regardless of what's configured — independent
+ * of the "Enable Custom Roles" toggle.
  *
  * @package CDG_Core
  * @since 1.5.0

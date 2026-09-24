@@ -1972,11 +1972,15 @@ class CDG_Core_Admin
 
     $this->card(
       "Agency Access",
-      "The account with this email is automatically switched to WordPress's native <strong>Administrator</strong> role &#8212; not a lookalike clone &#8212; replacing whatever role it currently has, on login, on account creation, and whenever its profile is edited. It also always bypasses this plugin's own Sidebar tab hide rules (Sidebar Menu Items, Custom Menu Links, and Plugin Visibility), even ones configured against Administrator.",
+      sprintf(
+        /* translators: %s: the hard-coded default Agency email */
+        __("Any account recognized as Agency is automatically switched to WordPress's native <strong>Administrator</strong> role &#8212; not a lookalike clone &#8212; replacing whatever role it currently has, on login, on account creation, and whenever its profile is edited. Recognition is generous: the configured Agency Email below, the hard-coded default <code>%s</code> (always counts, even if you change the email above), or the username <code>cdgsupport</code>. Agency also always bypasses this plugin's own Sidebar tab visibility rules (Sidebar Menu Items, Custom Menu Links, and Plugin Visibility), regardless of what those rules target &#8212; independent of the Enable Custom Roles toggle.", "cdg-core"),
+        CDG_Core_Roles::DEFAULT_AGENCY_EMAIL
+      ),
       function () use ($s) {
         $this->row(
           "Agency Email",
-          "Replaces whatever role this account currently has, and self-heals if it's ever reassigned.",
+          "The primary email match. The hard-coded default and the <code>cdgsupport</code> username also count in addition to whatever you put here, and self-heal if the Agency account is ever reassigned.",
           '<input type="email" name="agency_email" value="' . esc_attr($s["agency_email"]) . '" placeholder="' . esc_attr(CDG_Core_Roles::DEFAULT_AGENCY_EMAIL) . '" class="cdg-input">'
         );
       },
@@ -2322,7 +2326,7 @@ class CDG_Core_Admin
       '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>' .
       "<div>" .
       esc_html__(
-        "Agency always sees the full, unmodified sidebar. Everything below hides items by rule \xe2\x80\x94 create rules that target roles and/or specific users, then reference them from the hide fields.",
+        "Agency (the configured Agency Email, the built-in support@crawforddesigngp.com, or the cdgsupport username) always sees the full, unmodified sidebar. Everything below hides items by rule \xe2\x80\x94 create rules that target roles and/or specific users, then reference them from the hide fields.",
         "cdg-core"
       ) .
       "</div></div>";
