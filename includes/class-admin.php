@@ -20,6 +20,43 @@ class CDG_Core_Admin
     add_action("admin_menu", [$this, "add_admin_menu"]);
     add_action("admin_enqueue_scripts", [$this, "enqueue_assets"]);
     add_action("admin_init", [$this, "handle_form_submission"]);
+    add_action("wp_ajax_cdg_core_user_search", [$this, "ajax_user_search"]);
+  }
+
+  /**
+   * Endpoint for the Visibility Rules user picker. Returns up to 10 users
+   * whose display_name or user_email matches the query, as {id, label} rows.
+   * Manage-options-only, nonce-protected.
+   */
+  public function ajax_user_search(): void
+  {
+    check_ajax_referer("cdg_core_user_search", "nonce");
+
+    if (!current_user_can("manage_options")) {
+      wp_send_json_error("permission_denied", 403);
+    }
+
+    $q = sanitize_text_field(wp_unslash((string) ($_GET["q"] ?? "")));
+    if (strlen($q) < 2) {
+      wp_send_json_success([]);
+    }
+
+    $users = get_users([
+      "search"         => "*" . $q . "*",
+      "search_columns" => ["user_login", "user_email", "display_name"],
+      "number"         => 10,
+      "orderby"        => "display_name",
+      "fields"         => ["ID", "display_name", "user_email"],
+    ]);
+
+    $rows = [];
+    foreach ($users as $u) {
+      $rows[] = [
+        "id"    => (int) $u->ID,
+        "label" => sprintf("%s (%s)", $u->display_name, $u->user_email),
+      ];
+    }
+    wp_send_json_success($rows);
   }
 
   public function add_admin_menu(): void
@@ -281,10 +318,18 @@ class CDG_Core_Admin
         break;
 
       case "sidebar":
-        // Pre-fetch captured slugs and the targetable role slugs once.
+        // ── Visibility Rules — sanitize FIRST so every hide field below
+        //    validates against the freshly saved set of rule IDs. Any rule
+        //    the admin removed on this submission drops out of the hide
+        //    fields automatically, which is what you want.
+        $s["visibility_rules"] = CDG_Core_Visibility_Rules::sanitize(
+          $input["visibility_rules"] ?? []
+        );
+        $valid_rule_ids = array_column($s["visibility_rules"], "id");
+
+        // Pre-fetch captured menu slugs once.
         $captured_items = CDG_Core_Plugin_Visibility::get_captured_menu_items();
         $captured_slugs = array_keys($captured_items);
-        $target_roles   = array_keys(CDG_Core_Roles::target_roles());
 
         // ── Sidebar entry renames: slug => display_name ──────────────────
         $entry_names = [];
@@ -297,19 +342,14 @@ class CDG_Core_Admin
         }
         $s["sidebar_entry_names"] = $entry_names;
 
-        // ── Sidebar entry hiding: slug => [role_slug, ...] ────────────────
+        // ── Sidebar entry hiding: slug => [rule_id, ...] ─────────────────
         $entry_hidden = [];
-        foreach ((array) ($input["sidebar_entry_hidden"] ?? []) as $slug => $roles) {
+        foreach ((array) ($input["sidebar_entry_hidden"] ?? []) as $slug => $rule_ids) {
           $slug = sanitize_text_field($slug);
           if (!in_array($slug, $captured_slugs, true)) {
             continue;
           }
-          $validated = array_values(
-            array_intersect(
-              array_map("sanitize_key", (array) $roles),
-              $target_roles
-            )
-          );
+          $validated = CDG_Core_Visibility_Rules::filter_rule_ids($rule_ids, $valid_rule_ids);
           if (!empty($validated)) {
             $entry_hidden[$slug] = $validated;
           }
@@ -334,7 +374,7 @@ class CDG_Core_Admin
         }
         $s["sidebar_submenu_names"] = $submenu_names;
 
-        // ── Submenu hiding: parent_slug => [submenu_slug => [role_slug,...]] ──
+        // ── Submenu hiding: parent_slug => [submenu_slug => [rule_id,...]] ──
         $submenu_hidden = [];
         foreach ((array) ($input["sidebar_submenu_hidden"] ?? []) as $parent => $subs) {
           $parent = sanitize_text_field($parent);
@@ -342,17 +382,12 @@ class CDG_Core_Admin
             continue;
           }
           $valid_sub_slugs = array_keys($captured_items[$parent]["submenu"] ?? []);
-          foreach ((array) $subs as $sub_slug => $roles) {
+          foreach ((array) $subs as $sub_slug => $rule_ids) {
             $sub_slug = sanitize_text_field($sub_slug);
             if (!in_array($sub_slug, $valid_sub_slugs, true)) {
               continue;
             }
-            $validated = array_values(
-              array_intersect(
-                array_map("sanitize_key", (array) $roles),
-                $target_roles
-              )
-            );
+            $validated = CDG_Core_Visibility_Rules::filter_rule_ids($rule_ids, $valid_rule_ids);
             if (!empty($validated)) {
               $submenu_hidden[$parent][$sub_slug] = $validated;
             }
@@ -376,11 +411,9 @@ class CDG_Core_Admin
 
           $target = ($item["target"] ?? "_self") === "_blank" ? "_blank" : "_self";
 
-          $hidden_for = array_values(
-            array_intersect(
-              array_map("sanitize_key", (array) ($item["hidden_for"] ?? [])),
-              $target_roles
-            )
+          $hidden_for = CDG_Core_Visibility_Rules::filter_rule_ids(
+            $item["hidden_for"] ?? [],
+            $valid_rule_ids
           );
 
           $custom_links[] = [
@@ -394,25 +427,16 @@ class CDG_Core_Admin
         }
         $s["custom_menu_links"] = $custom_links;
 
-        // ── Plugin visibility: plugin_file => [role_slug, ...] ───────────
-        // Every registered role except Agency is a valid target here (all
-        // of $target_roles above, plus Editor/Author/Contributor/
-        // Subscriber, which aren't offered as Sidebar hide targets).
+        // ── Plugin visibility: plugin_file => [rule_id, ...] ─────────────
         $all_plugin_files = array_keys(CDG_Core_Plugin_Visibility::get_all_plugins());
-        $hideable_roles   = array_keys(CDG_Core_Roles::hideable_roles());
 
         $hidden_plugins = [];
-        foreach ((array) ($input["hidden_plugins"] ?? []) as $plugin_file => $roles) {
+        foreach ((array) ($input["hidden_plugins"] ?? []) as $plugin_file => $rule_ids) {
           $plugin_file = sanitize_text_field(wp_unslash((string) $plugin_file));
           if (!in_array($plugin_file, $all_plugin_files, true)) {
             continue;
           }
-          $validated = array_values(
-            array_intersect(
-              array_map("sanitize_key", (array) $roles),
-              $hideable_roles
-            )
-          );
+          $validated = CDG_Core_Visibility_Rules::filter_rule_ids($rule_ids, $valid_rule_ids);
           if (!empty($validated)) {
             $hidden_plugins[$plugin_file] = $validated;
           }
@@ -2009,7 +2033,7 @@ class CDG_Core_Admin
    * @param int|string $index  Numeric index (or __INDEX__ for the JS template).
    * @param array      $link   Saved link data; empty array for a blank row.
    */
-  private function render_custom_link_row($index, array $link = []): void
+  private function render_custom_link_row($index, array $link = [], array $rules = []): void
   {
     $i          = esc_attr((string) $index);
     $id         = esc_attr($link["id"]     ?? "");
@@ -2017,7 +2041,7 @@ class CDG_Core_Admin
     $icon       = esc_attr($link["icon"]   ?? "admin-generic");
     $url        = esc_attr($link["link"]   ?? "");
     $target     = ($link["target"] ?? "_self") === "_blank" ? "_blank" : "_self";
-    $hidden_for = array_map("sanitize_key", (array) ($link["hidden_for"] ?? []));
+    $hidden_for = array_values(array_map("strval", (array) ($link["hidden_for"] ?? [])));
 
     // Existing (saved) links start collapsed to a summary line; a freshly
     // added, still-empty link starts open since it needs input right away.
@@ -2032,16 +2056,16 @@ class CDG_Core_Admin
     $target_label = $target === "_blank" ? __("New tab", "cdg-core") : __("Same window", "cdg-core");
 
     $hidden_labels = [];
-    foreach (CDG_Core_Roles::target_roles() as $role_slug => $role_label) {
-      if (in_array($role_slug, $hidden_for, true)) {
-        $hidden_labels[] = $role_label;
+    foreach ($hidden_for as $rid) {
+      if (isset($rules[$rid])) {
+        $hidden_labels[] = $rules[$rid]["name"];
       }
     }
     $hidden_summary = empty($hidden_labels)
       ? __("Visible to everyone", "cdg-core")
       : sprintf(
-        /* translators: %s: comma-separated list of role labels */
-        __("Hidden from %s", "cdg-core"),
+        /* translators: %s: comma-separated list of rule names */
+        __("Hidden by %s", "cdg-core"),
         implode(", ", $hidden_labels)
       );
     ?>
@@ -2095,30 +2119,189 @@ class CDG_Core_Admin
           ?>
         </div>
         <div class="cdg-row">
-          <?php
-          $link_role_checks = "";
-          foreach (CDG_Core_Roles::target_roles() as $role_slug => $label) {
-            $link_role_checks .= $this->check_item(
-              "custom_menu_links[{$i}][hidden_for][]",
-              in_array($role_slug, $hidden_for, true),
-              sprintf(
-                /* translators: %s: role label, e.g. "Manager" */
-                __("Hide from %s", "cdg-core"),
-                $label
-              ),
-              $role_slug
-            );
-          }
-          $this->row(
-            "Hidden For",
-            "Client roles that will <strong>not</strong> see this link in the sidebar.",
-            '<div class="cdg-check-list">' . $link_role_checks . "</div>"
-          );
-          ?>
+          <?php $this->row(
+            "Hidden For Rules",
+            "Users matching any of the selected rules will <strong>not</strong> see this link in the sidebar.",
+            $this->rules_dropdown("custom_menu_links[{$i}][hidden_for]", $hidden_for, $rules)
+          ); ?>
         </div>
       </div>
     </div>
     <?php
+  }
+
+  /**
+   * Render a single row of the Visibility Rules repeater. Each rule stores
+   * an ID, a display name, a set of role slugs, and a set of user IDs; every
+   * "Hidden For Rules" dropdown elsewhere on this tab references those IDs.
+   *
+   * @param int|string $index  Numeric index (or __INDEX__ for the JS template).
+   * @param array      $rule   Saved rule data; empty array for a blank row.
+   */
+  private function render_rule_row($index, array $rule = []): void
+  {
+    $i     = esc_attr((string) $index);
+    $id    = esc_attr($rule["id"]   ?? "");
+    $name  = esc_attr($rule["name"] ?? "");
+    $roles = array_map("strval", (array) ($rule["roles"] ?? []));
+    $users = array_map("intval",  (array) ($rule["users"] ?? []));
+
+    $all_roles = wp_roles()->get_names();
+    $all_roles = array_map("translate_user_role", $all_roles);
+
+    // Pre-resolve the assigned users so the picker can show their labels
+    // even before its dropdown is opened. Only the assigned ones are loaded
+    // here — the picker itself is a lightweight click-to-add flow (see
+    // rules_user_picker() below) instead of an eager list of every account.
+    $assigned_users = [];
+    if (!empty($users)) {
+      foreach (get_users(["include" => $users, "fields" => ["ID", "display_name", "user_email"]]) as $u) {
+        $assigned_users[(int) $u->ID] = [
+          "id"    => (int) $u->ID,
+          "label" => sprintf("%s (%s)", $u->display_name, $u->user_email),
+        ];
+      }
+    }
+
+    $has_data     = ($rule["name"] ?? "") !== "";
+    $item_class   = "cdg-rule-item" . ($has_data ? " cdg-rule-collapsed" : "");
+    $roles_count  = count($roles);
+    $users_count  = count($users);
+    $summary_bits = [];
+    if ($roles_count) {
+      $summary_bits[] = sprintf(_n("%d role", "%d roles", $roles_count, "cdg-core"), $roles_count);
+    }
+    if ($users_count) {
+      $summary_bits[] = sprintf(_n("%d user", "%d users", $users_count, "cdg-core"), $users_count);
+    }
+    $summary = empty($summary_bits) ? __("No targets", "cdg-core") : implode(" \xc2\xb7 ", $summary_bits);
+    ?>
+    <div class="<?php echo esc_attr($item_class); ?>">
+      <div class="cdg-rule-header">
+        <button type="button" class="cdg-rule-toggle" title="<?php esc_attr_e("Expand", "cdg-core"); ?>">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+        <svg class="cdg-rule-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        <input type="hidden" name="visibility_rules[<?php echo $i; ?>][id]" value="<?php echo $id; ?>" class="cdg-rule-id">
+        <input type="text"
+               name="visibility_rules[<?php echo $i; ?>][name]"
+               value="<?php echo $name; ?>"
+               placeholder="<?php esc_attr_e("Rule name\xe2\x80\xa6 (e.g. Managers)", "cdg-core"); ?>"
+               class="cdg-input cdg-rule-name">
+        <span class="cdg-rule-summary"><?php echo esc_html($summary); ?></span>
+        <button type="button" class="cdg-rule-remove cdg-btn-icon" title="<?php esc_attr_e("Remove", "cdg-core"); ?>">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="cdg-rule-body">
+        <div class="cdg-row">
+          <?php
+          $role_checks = "";
+          foreach ($all_roles as $role_slug => $label) {
+            $role_checks .= $this->check_item(
+              "visibility_rules[{$i}][roles][]",
+              in_array($role_slug, $roles, true),
+              (string) $label,
+              (string) $role_slug
+            );
+          }
+          $this->row(
+            "Assign to Roles",
+            "Every user with any of these roles matches this rule.",
+            '<div class="cdg-check-list">' . $role_checks . "</div>"
+          );
+          ?>
+        </div>
+        <div class="cdg-row">
+          <?php $this->row(
+            "Assign to Users",
+            "Match specific accounts by name or email, in addition to any roles above.",
+            $this->rules_user_picker("visibility_rules[{$i}][users]", $assigned_users)
+          ); ?>
+        </div>
+      </div>
+    </div>
+    <?php
+  }
+
+  /**
+   * A compact multi-select for the "Hidden For Rules" fields: renders a
+   * button showing the selected rules as chips, plus a checkbox panel
+   * underneath. Hidden checkbox inputs carry the submitted values so the
+   * form still works if JS never boots.
+   *
+   * @param string $name_prefix  Form name (without the trailing []).
+   * @param array  $selected     Rule IDs currently selected.
+   * @param array  $rules        rule_id => rule row (name, etc.)
+   */
+  private function rules_dropdown(string $name_prefix, array $selected, array $rules): string
+  {
+    $name = esc_attr($name_prefix);
+
+    if (empty($rules)) {
+      return '<div class="cdg-rules-empty-hint">' .
+        esc_html__("Add a rule under Visibility Rules above to hide items.", "cdg-core") .
+        "</div>";
+    }
+
+    $chip_html = "";
+    foreach ($selected as $rid) {
+      if (!isset($rules[$rid])) {
+        continue;
+      }
+      $chip_html .= '<span class="cdg-rules-chip">' . esc_html($rules[$rid]["name"]) . '</span>';
+    }
+    $placeholder = $chip_html === ""
+      ? '<span class="cdg-rules-placeholder">' . esc_html__("Select\xe2\x80\xa6", "cdg-core") . "</span>"
+      : "";
+
+    $panel_rows = "";
+    foreach ($rules as $rid => $rule) {
+      $panel_rows .= '<label class="cdg-rules-option">' .
+        '<input type="checkbox" name="' . $name . '[]" value="' . esc_attr($rid) . '"' .
+        (in_array($rid, $selected, true) ? " checked" : "") . '>' .
+        '<span class="cdg-check-box"></span>' .
+        '<span>' . esc_html($rule["name"]) . '</span>' .
+        '</label>';
+    }
+
+    return '<div class="cdg-rules-dropdown">' .
+      '<button type="button" class="cdg-rules-trigger">' .
+      '<span class="cdg-rules-chips">' . $chip_html . $placeholder . '</span>' .
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>' .
+      '</button>' .
+      '<div class="cdg-rules-panel" hidden>' . $panel_rows . '</div>' .
+      '</div>';
+  }
+
+  /**
+   * User picker for the Visibility Rules card. Renders one hidden input per
+   * already-assigned user, a search box, and (JS-populated) a live-searched
+   * suggestion list. Server side, only the [][id] values submit — matching
+   * how it's sanitized in CDG_Core_Visibility_Rules::sanitize().
+   *
+   * @param string                              $name_prefix
+   * @param array<int, array{id:int,label:string}> $assigned
+   */
+  private function rules_user_picker(string $name_prefix, array $assigned): string
+  {
+    $name = esc_attr($name_prefix);
+    $chips = "";
+    foreach ($assigned as $u) {
+      $chips .= '<span class="cdg-rules-user-chip" data-id="' . esc_attr((string) $u["id"]) . '">' .
+        '<span>' . esc_html($u["label"]) . '</span>' .
+        '<button type="button" class="cdg-rules-user-remove" title="' . esc_attr__("Remove", "cdg-core") . '" aria-label="' . esc_attr__("Remove", "cdg-core") . '">&times;</button>' .
+        '<input type="hidden" name="' . $name . '[]" value="' . esc_attr((string) $u["id"]) . '">' .
+        '</span>';
+    }
+    // AJAX endpoint uses admin-ajax with a nonce; see wp_ajax hook in this class.
+    $nonce = wp_create_nonce("cdg_core_user_search");
+
+    return '<div class="cdg-user-picker" data-name="' . $name . '" data-nonce="' . esc_attr($nonce) . '">' .
+      '<div class="cdg-user-chips">' . $chips . '</div>' .
+      '<input type="text" class="cdg-input cdg-user-search" placeholder="' . esc_attr__("Search users by name or email\xe2\x80\xa6", "cdg-core") . '">' .
+      '<div class="cdg-user-suggestions" hidden></div>' .
+      '</div>';
   }
 
   private function tab_sidebar(array $s): void
@@ -2129,22 +2312,55 @@ class CDG_Core_Admin
     $submenu_names  = (array) ($s["sidebar_submenu_names"]  ?? []);
     $submenu_hidden = (array) ($s["sidebar_submenu_hidden"] ?? []);
     $custom_links   = array_values((array) ($s["custom_menu_links"]   ?? []));
-    $target_roles   = CDG_Core_Roles::target_roles(); // role_slug => label
+
+    // rule_id => rule row. Also expose it to the JS-cloned templates below
+    // so a newly added row's "Hidden For Rules" dropdown has options.
+    $rules       = CDG_Core_Visibility_Rules::get_rules($this->plugin);
+    $rules_saved = array_values((array) ($s["visibility_rules"] ?? []));
 
     echo '<div class="cdg-notice cdg-notice-info">' .
       '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>' .
       "<div>" .
       esc_html__(
-        "Agency always sees the full, unmodified sidebar. The toggles below can target Administrator, Manager, and Staff.",
+        "Agency always sees the full, unmodified sidebar. Everything below hides items by rule \xe2\x80\x94 create rules that target roles and/or specific users, then reference them from the hide fields.",
         "cdg-core"
       ) .
       "</div></div>";
 
+    // ── Card 0: Visibility Rules ───────────────────────────────────────────
+    $this->card(
+      "Visibility Rules",
+      "Named groups of roles and/or specific users. Every hide field below references these by name, so \"hide five things from Managers\" only needs one rule.",
+      function () use ($rules_saved) {
+        $count = count($rules_saved);
+        echo '<div id="cdg-rules-list" data-count="' . esc_attr((string) $count) . '">';
+        foreach ($rules_saved as $i => $rule) {
+          $this->render_rule_row($i, $rule);
+        }
+        echo "</div>";
+
+        $empty_style = $count > 0 ? ' style="display:none;"' : "";
+        echo '<div class="cdg-snippets-empty" id="cdg-rules-empty"' . $empty_style . ">" .
+          esc_html__("No rules yet. Add one below to start hiding items from specific users or roles.", "cdg-core") .
+          "</div>";
+
+        echo '<template id="cdg-rule-template">';
+        $this->render_rule_row("__INDEX__");
+        echo "</template>";
+
+        echo '<div class="cdg-snippet-add-wrap">' .
+          '<button type="button" id="cdg-rule-add" class="cdg-btn">' .
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' .
+          esc_html__(" Add Rule", "cdg-core") .
+          "</button></div>";
+      }
+    );
+
     // ── Card 1: Sidebar Menu Items ─────────────────────────────────────────
     $this->card(
       "Sidebar Menu Items",
-      "Rename any admin sidebar entry or hide it from Administrator, Manager, or Staff. Items with submenu pages can be expanded to manage those too. Visit the WordPress dashboard once to populate this list.",
-      function () use ($captured_items, $entry_names, $entry_hidden, $submenu_names, $submenu_hidden, $target_roles) {
+      "Rename any admin sidebar entry or hide it via a Visibility Rule. Items with submenu pages can be expanded to manage those too. Visit the WordPress dashboard once to populate this list.",
+      function () use ($captured_items, $entry_names, $entry_hidden, $submenu_names, $submenu_hidden, $rules) {
         $real = array_filter($captured_items, fn($i) => !($i["separator"] ?? false));
 
         if (empty($real)) {
@@ -2201,7 +2417,7 @@ class CDG_Core_Admin
         echo "</div>";
 
         echo '<div class="cdg-legend"><span class="cdg-legend-dot"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></span>' .
-          esc_html__("renamed or hidden from at least one role", "cdg-core") .
+          esc_html__("renamed or hidden by at least one rule", "cdg-core") .
           "</div>";
 
         echo '<div class="cdg-scroll-region cdg-scroll-region-tall">';
@@ -2211,19 +2427,17 @@ class CDG_Core_Admin
         echo '<div class="cdg-si-row cdg-si-row-head">';
         echo '<div class="cdg-si-main">' . esc_html__("Menu Item", "cdg-core") . "</div>";
         echo '<div class="cdg-si-rename">' . esc_html__("Display As", "cdg-core") . "</div>";
-        foreach ($target_roles as $label) {
-          echo '<div class="cdg-si-role-col">' . esc_html($label) . "</div>";
-        }
+        echo '<div class="cdg-si-rules-col">' . esc_html__("Hidden For Rules", "cdg-core") . "</div>";
         echo "</div>";
 
         foreach ($real as $slug => $item) {
-          $title        = $item["title"] ?? $slug;
-          $icon         = $item["icon"]  ?? "";
-          $saved_name   = esc_attr($entry_names[$slug] ?? "");
-          $hidden_roles = (array) ($entry_hidden[$slug] ?? []);
-          $slug_attr    = esc_attr($slug);
-          $subs         = (array) ($item["submenu"] ?? []);
-          $has_subs     = !empty($subs);
+          $title           = $item["title"] ?? $slug;
+          $icon            = $item["icon"]  ?? "";
+          $saved_name      = esc_attr($entry_names[$slug] ?? "");
+          $entry_rule_ids  = (array) ($entry_hidden[$slug] ?? []);
+          $slug_attr       = esc_attr($slug);
+          $subs            = (array) ($item["submenu"] ?? []);
+          $has_subs        = !empty($subs);
 
           // Auto-expand if any child already has saved rename/hide data,
           // same convenience the old accordion offered per-item.
@@ -2266,30 +2480,16 @@ class CDG_Core_Admin
                      placeholder="<?php esc_attr_e("Display as\xe2\x80\xa6", "cdg-core"); ?>"
                      class="cdg-input">
             </div>
-            <?php foreach ($target_roles as $role_slug => $label): ?>
-              <div class="cdg-si-role-col">
-                <label class="cdg-check-item cdg-check-solo" title="<?php echo esc_attr(
-                  sprintf(
-                    /* translators: %s: role label, e.g. "Manager" */
-                    __("Hide from %s", "cdg-core"),
-                    $label
-                  )
-                ); ?>">
-                  <input type="checkbox"
-                         name="sidebar_entry_hidden[<?php echo $slug_attr; ?>][]"
-                         value="<?php echo esc_attr($role_slug); ?>"
-                         <?php checked(in_array($role_slug, $hidden_roles, true)); ?>>
-                  <span class="cdg-check-box"></span>
-                </label>
-              </div>
-            <?php endforeach; ?>
+            <div class="cdg-si-rules-col">
+              <?php echo $this->rules_dropdown("sidebar_entry_hidden[{$slug}]", $entry_rule_ids, $rules); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+            </div>
           </div>
           <?php if ($has_subs): foreach ($subs as $sub_slug => $sub_item):
-            $sub_title        = $sub_item["title"] ?? $sub_slug;
-            $sub_saved_name   = esc_attr($submenu_names[$slug][$sub_slug] ?? "");
-            $sub_hidden_roles = (array) ($submenu_hidden[$slug][$sub_slug] ?? []);
-            $sub_slug_attr    = esc_attr($sub_slug);
-            $parent_attr      = esc_attr($slug);
+            $sub_title       = $sub_item["title"] ?? $sub_slug;
+            $sub_saved_name  = esc_attr($submenu_names[$slug][$sub_slug] ?? "");
+            $sub_rule_ids    = (array) ($submenu_hidden[$slug][$sub_slug] ?? []);
+            $sub_slug_attr   = esc_attr($sub_slug);
+            $parent_attr     = esc_attr($slug);
             ?>
             <div class="cdg-si-row cdg-si-child<?php echo $sub_has_data ? " cdg-si-open" : ""; ?>" data-parent="<?php echo $parent_attr; ?>" data-slug="<?php echo $sub_slug_attr; ?>">
               <div class="cdg-si-main cdg-si-main-child">
@@ -2301,23 +2501,9 @@ class CDG_Core_Admin
                        placeholder="<?php esc_attr_e("Display as\xe2\x80\xa6", "cdg-core"); ?>"
                        class="cdg-input">
               </div>
-              <?php foreach ($target_roles as $role_slug => $label): ?>
-                <div class="cdg-si-role-col">
-                  <label class="cdg-check-item cdg-check-solo" title="<?php echo esc_attr(
-                    sprintf(
-                      /* translators: %s: role label, e.g. "Manager" */
-                      __("Hide from %s", "cdg-core"),
-                      $label
-                    )
-                  ); ?>">
-                    <input type="checkbox"
-                           name="sidebar_submenu_hidden[<?php echo $parent_attr; ?>][<?php echo $sub_slug_attr; ?>][]"
-                           value="<?php echo esc_attr($role_slug); ?>"
-                           <?php checked(in_array($role_slug, $sub_hidden_roles, true)); ?>>
-                    <span class="cdg-check-box"></span>
-                  </label>
-                </div>
-              <?php endforeach; ?>
+              <div class="cdg-si-rules-col">
+                <?php echo $this->rules_dropdown("sidebar_submenu_hidden[{$slug}][{$sub_slug}]", $sub_rule_ids, $rules); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+              </div>
             </div>
           <?php endforeach; endif; ?>
           <?php
@@ -2333,13 +2519,13 @@ class CDG_Core_Admin
     // ── Card 2: Custom Menu Links ──────────────────────────────────────────
     $this->card(
       "Custom Menu Links",
-      "Add custom links to the admin sidebar. Each link can be shown to everyone or hidden from Administrator, Manager, or Staff.",
-      function () use ($custom_links) {
+      "Add custom links to the admin sidebar. Each link can be shown to everyone or hidden by one or more Visibility Rules.",
+      function () use ($custom_links, $rules) {
         $count = count($custom_links);
 
         echo '<div id="cdg-links-list" data-count="' . $count . '">';
         foreach ($custom_links as $i => $link) {
-          $this->render_custom_link_row($i, $link);
+          $this->render_custom_link_row($i, $link, $rules);
         }
         echo "</div>";
 
@@ -2351,7 +2537,7 @@ class CDG_Core_Admin
 
         // Template for JS cloning.
         echo '<template id="cdg-link-template">';
-        $this->render_custom_link_row("__INDEX__");
+        $this->render_custom_link_row("__INDEX__", [], $rules);
         echo "</template>";
 
         echo '<div class="cdg-snippet-add-wrap">' .
@@ -2365,30 +2551,17 @@ class CDG_Core_Admin
     // ── Card 3: Plugin Visibility ──────────────────────────────────────────
     $this->card(
       "Plugin Visibility",
-      "Hide specific installed plugins from the Plugins page for a role. Unlike the controls above, this isn&#8217;t limited to Administrator, Manager, and Staff &#8212; every native WordPress role (Editor, Author, etc.) can be targeted too, so a plugin stays hidden from a client even if they&#8217;re not on a custom role. <strong>Agency always sees every plugin</strong>, regardless of what&#8217;s checked here.",
-      function () use ($s) {
+      "Hide specific installed plugins from the Plugins page by Visibility Rule. <strong>Agency always sees every plugin</strong>, regardless of what&#8217;s configured here.",
+      function () use ($s, $rules) {
         $all_plugins    = CDG_Core_Plugin_Visibility::get_all_plugins();
         $hidden_plugins = (array) ($s["hidden_plugins"] ?? []);
-        $hideable_roles = CDG_Core_Roles::hideable_roles();
 
         if (empty($all_plugins)) {
           echo '<div class="cdg-empty">' . esc_html__("No plugins found.", "cdg-core") . "</div>";
           return;
         }
 
-        if (empty($hideable_roles)) {
-          echo '<div class="cdg-empty">' . esc_html__("No roles available to hide plugins from.", "cdg-core") . "</div>";
-          return;
-        }
-
         uasort($all_plugins, fn($a, $b) => strcasecmp($a["Name"] ?? "", $b["Name"] ?? ""));
-
-        // "Hide Default WordPress Roles" (Roles tab) means Editor/Author/
-        // Contributor/Subscriber can't be newly assigned — so there's
-        // nothing to configure for them here either. Hidden with CSS, not
-        // omitted from the markup, so the checkboxes still submit their
-        // saved state on Save even while their column is out of view.
-        $hide_native_cols = !empty($s["enable_custom_roles"]) && !empty($s["hide_native_roles"]);
 
         echo '<div class="cdg-toolbar">';
         echo '<div class="cdg-search-input"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>';
@@ -2404,77 +2577,28 @@ class CDG_Core_Admin
           "</span>";
         echo "</div>";
 
-        echo '<div class="cdg-legend"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>' .
-          esc_html__("check a role's header box to hide every plugin from that role at once", "cdg-core") .
-          "</div>";
-
-        if ($hide_native_cols) {
-          echo '<div class="cdg-inline-note">' .
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>' .
-            "<span>" .
-            wp_kses_post(
-              __(
-                "Editor, Author, Contributor, and Subscriber are hidden here because <strong>Hide Default WordPress Roles</strong> is on &#8212; turn it off on the Roles tab to configure them again.",
-                "cdg-core"
-              )
-            ) .
-            "</span></div>";
-        }
-
-        echo '<div class="cdg-scroll-region' . ($hide_native_cols ? " cdg-pv-hide-native" : "") . '" style="max-height:none;">';
+        echo '<div class="cdg-scroll-region" style="max-height:none;">';
         echo '<div class="cdg-pv-list">';
 
-        // Column headers, each a select-all checkbox for that role.
+        // Column headers.
         echo '<div class="cdg-pv-row cdg-pv-row-head">';
         echo '<div class="cdg-pv-main">' . esc_html__("Plugin", "cdg-core") . "</div>";
-        foreach ($hideable_roles as $role_slug => $label) {
-          echo '<div class="cdg-pv-role-col cdg-pv-head-role" data-role-col="' . esc_attr($role_slug) . '">';
-          echo '<label class="cdg-pv-head-check" title="' .
-            esc_attr(
-              sprintf(
-                /* translators: %s: role label, e.g. "Manager" */
-                __("Select all \xc2\xb7 %s", "cdg-core"),
-                $label
-              )
-            ) . '">';
-          echo '<input type="checkbox" class="cdg-pv-head-cb" data-role="' . esc_attr($role_slug) . '">';
-          echo '<span class="cdg-check-box"></span>';
-          echo "<span>" . esc_html($label) . "</span>";
-          echo "</label>";
-          echo "</div>";
-        }
+        echo '<div class="cdg-pv-rules-col">' . esc_html__("Hidden For Rules", "cdg-core") . "</div>";
         echo "</div>";
 
         foreach ($all_plugins as $plugin_file => $plugin_data) {
-          $name         = $plugin_data["Name"] ?? $plugin_file;
-          $hidden_roles = (array) ($hidden_plugins[$plugin_file] ?? []);
-          $file_attr    = esc_attr($plugin_file);
-          $title_attr   = esc_attr(strtolower($name));
+          $name       = $plugin_data["Name"] ?? $plugin_file;
+          $rule_ids   = (array) ($hidden_plugins[$plugin_file] ?? []);
+          $title_attr = esc_attr(strtolower($name));
 
           echo '<div class="cdg-pv-row" data-title="' . $title_attr . '">';
           echo '<div class="cdg-pv-main">';
           echo '<span class="cdg-si-title">' . esc_html($name) . "</span>";
           echo ' <span class="cdg-widget-id">' . esc_html($plugin_file) . "</span>";
           echo "</div>";
-
-          foreach ($hideable_roles as $role_slug => $label) {
-            echo '<div class="cdg-pv-role-col" data-role-col="' . esc_attr($role_slug) . '">';
-            echo '<label class="cdg-check-item cdg-check-solo" title="' .
-              esc_attr(
-                sprintf(
-                  /* translators: %s: role label, e.g. "Manager" */
-                  __("Hide from %s", "cdg-core"),
-                  $label
-                )
-              ) . '">';
-            echo '<input type="checkbox" class="cdg-pv-cb" data-role="' . esc_attr($role_slug) . '" name="hidden_plugins[' . $file_attr . '][]" value="' .
-              esc_attr($role_slug) . '"' .
-              (in_array($role_slug, $hidden_roles, true) ? " checked" : "") . ">";
-            echo '<span class="cdg-check-box"></span>';
-            echo "</label>";
-            echo "</div>";
-          }
-
+          echo '<div class="cdg-pv-rules-col">';
+          echo $this->rules_dropdown("hidden_plugins[{$plugin_file}]", $rule_ids, $rules); // phpcs:ignore WordPress.Security.EscapeOutput
+          echo "</div>";
           echo "</div>";
         }
 

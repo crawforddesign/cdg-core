@@ -4,7 +4,7 @@
  * Plugin URI: https://crawforddesigngroup.com
  * Update URI: https://github.com/crawforddesign/cdg-core
  * Description: WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
- * Version: 1.9.15
+ * Version: 1.10.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: Crawford Design Group
@@ -37,7 +37,7 @@ if (!class_exists("CDG_Core")) {
   /**
    * Plugin Constants
    */
-  define("CDG_CORE_VERSION", "1.9.15");
+  define("CDG_CORE_VERSION", "1.10.0");
   define("CDG_CORE_DIR", plugin_dir_path(__FILE__));
   define("CDG_CORE_URL", plugin_dir_url(__FILE__));
   define("CDG_CORE_BASENAME", plugin_basename(__FILE__));
@@ -223,15 +223,20 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
       "hide_native_roles" => false, // hides Editor/Author/Contributor/Subscriber from the role picker (requires enable_custom_roles); Administrator always stays selectable
       "agency_email" => CDG_Core_Roles::DEFAULT_AGENCY_EMAIL, // account with this email is auto-switched to native Administrator, replacing its current role
 
+      // Visibility Rules (Sidebar tab) — named groups of role slugs and/or
+      // user IDs, referenced by ID from every hide field below. See
+      // CDG_Core_Visibility_Rules for the shape and runtime resolver.
+      "visibility_rules" => [], // [{id, name, roles:[role_slug,...], users:[user_id,...]}]
+
       // Sidebar management
       "sidebar_entry_names" => [], // menu_slug => display_name (global rename)
-      "sidebar_entry_hidden" => [], // menu_slug => [role_slug, ...] (administrator / cdg_client_manager / cdg_client_staff)
+      "sidebar_entry_hidden" => [], // menu_slug => [rule_id, ...]
       "sidebar_submenu_names" => [], // parent_slug => [submenu_slug => display_name]
-      "sidebar_submenu_hidden" => [], // parent_slug => [submenu_slug => [role_slug, ...]]
-      "custom_menu_links" => [], // [{id, title, icon, link, target, hidden_for:[role_slug,...]}]
+      "sidebar_submenu_hidden" => [], // parent_slug => [submenu_slug => [rule_id, ...]]
+      "custom_menu_links" => [], // [{id, title, icon, link, target, hidden_for:[rule_id,...]}]
 
       // Plugin visibility (Sidebar tab)
-      "hidden_plugins" => [], // plugin_file => [role_slug, ...] — hidden from those roles; the agency account always sees every plugin
+      "hidden_plugins" => [], // plugin_file => [rule_id, ...] — hidden from any matching rule; the agency account always sees every plugin
 
       // Login Page
       "login_logo_id" => 0,
@@ -353,6 +358,14 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
       // reinterpreted as roles, so it's cleared once and never touched again.
       $this->migrate_sidebar_settings_to_roles();
 
+      // One-time migration: as of 1.10.0 every Sidebar-tab hide field
+      // (sidebar entries, submenu items, custom link visibility, plugin
+      // visibility) stores rule IDs from CDG_Core_Visibility_Rules instead
+      // of raw role slugs. Old role-slug lists can't be reinterpreted as
+      // rule IDs, so they're cleared once — the admin re-adds them under
+      // the new Rules model.
+      $this->migrate_sidebar_settings_to_rules();
+
       // One-time migration: clear the pre-1.9.0 default "Custom Admin CSS"
       // text on sites that never actually customized it.
       $this->migrate_clear_default_custom_css();
@@ -427,6 +440,54 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
       }
 
       update_option("cdg_core_sidebar_roles_migrated", true);
+    }
+
+    /**
+     * One-time clear of the pre-1.10.0 role-slug-keyed Sidebar-tab hide
+     * fields (sidebar_entry_hidden, sidebar_submenu_hidden, hidden_plugins,
+     * custom_menu_links[].hidden_for). Those used to store role slugs
+     * directly; they now store rule IDs from the new Visibility Rules
+     * system. Rewriting the slugs into synthetic per-role rules would give
+     * the impression of an automatic migration that hides the same things
+     * as before — but rule assignments are meant to be considered up front,
+     * so the safer default is a clean slate. Custom link *renames* and the
+     * sidebar rename lists are preserved (no roles involved). Gated by its
+     * own flag so it only ever runs once, regardless of future version
+     * bumps.
+     *
+     * @return void
+     */
+    private function migrate_sidebar_settings_to_rules(): void
+    {
+      if (get_option("cdg_core_sidebar_rules_migrated", false)) {
+        return;
+      }
+
+      $settings = get_option("cdg_core_settings", []);
+
+      if (is_array($settings)) {
+        unset(
+          $settings["sidebar_entry_hidden"],
+          $settings["sidebar_submenu_hidden"],
+          $settings["hidden_plugins"]
+        );
+
+        if (
+          isset($settings["custom_menu_links"]) &&
+          is_array($settings["custom_menu_links"])
+        ) {
+          foreach ($settings["custom_menu_links"] as &$link) {
+            if (is_array($link)) {
+              $link["hidden_for"] = [];
+            }
+          }
+          unset($link);
+        }
+
+        update_option("cdg_core_settings", $settings);
+      }
+
+      update_option("cdg_core_sidebar_rules_migrated", true);
     }
 
     /**

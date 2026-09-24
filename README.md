@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.9.15
+## Version 1.10.0
 
 ### Requirements
 
@@ -246,6 +246,13 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.10.0
+
+- **Visibility Rules for the Sidebar tab.** Every hide field on the Sidebar tab — Sidebar Menu Items, Custom Menu Links, and Plugin Visibility — now targets one or more named **Visibility Rules** instead of raw role slugs. A rule is a group of role slugs and/or specific user IDs, defined once in a new **Visibility Rules** card at the top of the Sidebar tab and referenced by every hide field afterwards. Rules can target any registered WordPress role and any real user account by name/email search, so "hide this from Alice, Bob, and everyone in the Editor role" is a single rule that gets picked from a dropdown wherever it's needed.
+- The per-row Administrator/Manager/Staff checkbox columns were replaced with a compact **Hidden For Rules** multi-select dropdown that shows the currently selected rules as chips. The old per-role "Select all" column headers on Plugin Visibility are gone with them, since one rule can now hide a plugin from every role at once.
+- Agency still bypasses every rule unconditionally, exactly as it bypassed the per-role hide checkboxes before.
+- **Upgrade wipes existing hide rules.** The old fields stored role slugs directly and can't be reinterpreted as rule IDs, so `sidebar_entry_hidden`, `sidebar_submenu_hidden`, `hidden_plugins`, and each custom link's `hidden_for` are cleared once on upgrade to 1.10.0. Renames (both entry names and submenu names), custom link titles/URLs/icons, and the custom-role/agency-email settings are all preserved — only the *which roles is this hidden from* selections need to be re-created under the new Rules model.
 
 #### 1.9.15
 

@@ -242,6 +242,20 @@
 
       if (siSearch) siSearch.addEventListener("input", applySiFilter);
 
+      // Rename inputs also count toward "customized" — re-sync on typing so
+      // the dot and the Customized-only filter stay honest.
+      siList.querySelectorAll('input[name^="sidebar_entry_names["]').forEach(function (inp) {
+        var row = inp.closest(".cdg-si-parent");
+        if (row) inp.addEventListener("input", function () { syncSiRowCustomized(row); applySiFilter(); });
+      });
+      siList.querySelectorAll('input[name^="sidebar_submenu_names["]').forEach(function (inp) {
+        var child = inp.closest(".cdg-si-child");
+        if (!child) return;
+        var parentSlug = child.dataset.parent;
+        var pRow = parentSlug ? document.querySelector('.cdg-si-parent[data-slug="' + parentSlug + '"]') : null;
+        if (pRow) inp.addEventListener("input", function () { syncSiRowCustomized(pRow); applySiFilter(); });
+      });
+
       if (siCustomizedBtn) {
         siCustomizedBtn.addEventListener("click", function () {
           siCustomizedOnly = !siCustomizedOnly;
@@ -276,41 +290,12 @@
       }
     }
 
-    // ── Sidebar tab: Plugin Visibility search + select-all columns ──
+    // ── Sidebar tab: Plugin Visibility search ──
     var pvList = document.querySelector(".cdg-pv-list");
     if (pvList) {
       var pvSearch = document.getElementById("cdg-pv-search");
       var pvEmpty  = document.getElementById("cdg-pv-empty");
       var pvRows   = Array.prototype.slice.call(pvList.querySelectorAll(".cdg-pv-row:not(.cdg-pv-row-head)"));
-
-      function pvVisibleCheckboxesForRole(role) {
-        return pvRows
-          .filter(function (row) { return row.style.display !== "none"; })
-          .map(function (row) { return row.querySelector('.cdg-pv-cb[data-role="' + role + '"]'); })
-          .filter(Boolean);
-      }
-
-      function syncPvColumnHeader(role) {
-        var header = pvList.querySelector('.cdg-pv-head-cb[data-role="' + role + '"]');
-        if (!header) return;
-
-        var boxes = pvVisibleCheckboxesForRole(role);
-        if (!boxes.length) {
-          header.checked = false;
-          header.indeterminate = false;
-          return;
-        }
-
-        var checkedCount = boxes.filter(function (b) { return b.checked; }).length;
-        header.checked = checkedCount === boxes.length;
-        header.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
-      }
-
-      function syncAllPvColumnHeaders() {
-        pvList.querySelectorAll(".cdg-pv-head-cb").forEach(function (header) {
-          syncPvColumnHeader(header.dataset.role);
-        });
-      }
 
       function applyPvFilter() {
         var q = (pvSearch ? pvSearch.value : "").trim().toLowerCase();
@@ -324,28 +309,295 @@
         });
 
         if (pvEmpty) pvEmpty.style.display = anyVisible ? "none" : "";
-        syncAllPvColumnHeaders();
       }
 
       if (pvSearch) pvSearch.addEventListener("input", applyPvFilter);
-
-      pvList.querySelectorAll(".cdg-pv-head-cb").forEach(function (header) {
-        header.addEventListener("click", function () {
-          var role    = header.dataset.role;
-          var checked = header.checked;
-          pvVisibleCheckboxesForRole(role).forEach(function (cb) { cb.checked = checked; });
-          header.indeterminate = false;
-        });
-      });
-
-      pvList.querySelectorAll(".cdg-pv-cb").forEach(function (cb) {
-        cb.addEventListener("change", function () {
-          syncPvColumnHeader(cb.dataset.role);
-        });
-      });
-
-      syncAllPvColumnHeaders();
     }
+
+    // ── Sidebar tab: Hidden For Rules dropdown ──
+    // A compact multi-select: clicking the trigger opens a panel of checkboxes;
+    // toggling any checkbox rewrites the chip strip on the trigger to match.
+    // Selected values are the checkbox values themselves — hidden inputs work
+    // even if this JS never boots (the form still submits sensibly).
+    var openRulesDropdown = null;
+    function initRulesDropdown(dd) {
+      if (!dd || dd.dataset.initialized === "1") return;
+      dd.dataset.initialized = "1";
+
+      var trigger = dd.querySelector(".cdg-rules-trigger");
+      var panel   = dd.querySelector(".cdg-rules-panel");
+      var chips   = dd.querySelector(".cdg-rules-chips");
+      if (!trigger || !panel || !chips) return;
+
+      function renderChips() {
+        var checked = panel.querySelectorAll('input[type="checkbox"]:checked');
+        chips.innerHTML = "";
+        if (!checked.length) {
+          var ph = document.createElement("span");
+          ph.className   = "cdg-rules-placeholder";
+          ph.textContent = "Select…";
+          chips.appendChild(ph);
+          return;
+        }
+        checked.forEach(function (cb) {
+          var chip = document.createElement("span");
+          chip.className   = "cdg-rules-chip";
+          chip.textContent = cb.parentNode.querySelector("span:last-child").textContent;
+          chips.appendChild(chip);
+        });
+      }
+
+      trigger.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (openRulesDropdown && openRulesDropdown !== dd) {
+          openRulesDropdown.classList.remove("cdg-rules-open");
+          var otherPanel = openRulesDropdown.querySelector(".cdg-rules-panel");
+          if (otherPanel) otherPanel.setAttribute("hidden", "");
+        }
+        var open = dd.classList.toggle("cdg-rules-open");
+        panel.toggleAttribute("hidden", !open);
+        openRulesDropdown = open ? dd : null;
+      });
+
+      panel.addEventListener("change", function (e) {
+        if (e.target && e.target.matches('input[type="checkbox"]')) {
+          renderChips();
+          // Update the "customized" state of the enclosing Sidebar Menu
+          // Items row (parent or child), so the dot indicator and the
+          // "Customized only" filter stay in sync with what's actually
+          // selected — same behavior the pre-1.10.0 per-role checkboxes had.
+          var parentRow = dd.closest(".cdg-si-parent");
+          if (parentRow) syncSiRowCustomized(parentRow);
+          var childRow = dd.closest(".cdg-si-child");
+          if (childRow) {
+            var parentSlug = childRow.dataset.parent;
+            var pRow = parentSlug ? document.querySelector('.cdg-si-parent[data-slug="' + parentSlug + '"]') : null;
+            if (pRow) syncSiRowCustomized(pRow);
+          }
+        }
+      });
+    }
+
+    // Recompute a Sidebar Menu Items parent row's data-customized attribute
+    // and dot indicator based on the current form state (rename input +
+    // rules dropdown selections in the row itself and all its submenu
+    // children). Called on every rules-dropdown change.
+    function syncSiRowCustomized(row) {
+      var slug   = row.dataset.slug;
+      var custom = false;
+
+      var rename = row.querySelector('input[name^="sidebar_entry_names["]');
+      if (rename && rename.value.trim() !== "") custom = true;
+
+      if (!custom) {
+        var ownRuleCbs = row.querySelectorAll('.cdg-rules-panel input[type="checkbox"]:checked');
+        if (ownRuleCbs.length) custom = true;
+      }
+
+      if (!custom && slug) {
+        document.querySelectorAll('.cdg-si-child[data-parent="' + slug + '"]').forEach(function (child) {
+          var sr = child.querySelector('input[name^="sidebar_submenu_names["]');
+          if (sr && sr.value.trim() !== "") custom = true;
+          var scb = child.querySelectorAll('.cdg-rules-panel input[type="checkbox"]:checked');
+          if (scb.length) custom = true;
+        });
+      }
+
+      row.dataset.customized = custom ? "true" : "false";
+      var dot = row.querySelector(".cdg-si-customized-dot");
+      if (custom && !dot) {
+        dot = document.createElement("span");
+        dot.className = "cdg-si-customized-dot";
+        dot.setAttribute("aria-hidden", "true");
+        var titleEl = row.querySelector(".cdg-si-title");
+        if (titleEl) titleEl.after(dot);
+      } else if (!custom && dot) {
+        dot.remove();
+      }
+    }
+
+    document.querySelectorAll(".cdg-rules-dropdown").forEach(initRulesDropdown);
+
+    document.addEventListener("click", function (e) {
+      if (openRulesDropdown && !openRulesDropdown.contains(e.target)) {
+        openRulesDropdown.classList.remove("cdg-rules-open");
+        var p = openRulesDropdown.querySelector(".cdg-rules-panel");
+        if (p) p.setAttribute("hidden", "");
+        openRulesDropdown = null;
+      }
+    });
+
+    // ── Sidebar tab: Visibility Rules repeater ──
+    var rulesList    = document.getElementById("cdg-rules-list");
+    var ruleTemplate = document.getElementById("cdg-rule-template");
+    var ruleAddBtn   = document.getElementById("cdg-rule-add");
+    var rulesEmpty   = document.getElementById("cdg-rules-empty");
+
+    if (rulesList && ruleTemplate && ruleAddBtn) {
+      var ruleCounter = parseInt(rulesList.dataset.count || "0", 10);
+
+      function syncRulesEmpty() {
+        if (rulesEmpty) {
+          rulesEmpty.style.display = rulesList.children.length === 0 ? "" : "none";
+        }
+      }
+
+      function generateHex(len) {
+        var hex = "";
+        for (var i = 0; i < len; i++) {
+          hex += Math.floor(Math.random() * 16).toString(16);
+        }
+        return hex;
+      }
+
+      function initRuleRow(row) {
+        var toggle = row.querySelector(".cdg-rule-toggle");
+        if (toggle) {
+          toggle.addEventListener("click", function () {
+            row.classList.toggle("cdg-rule-collapsed");
+          });
+        }
+        var removeBtn = row.querySelector(".cdg-rule-remove");
+        if (removeBtn) {
+          removeBtn.addEventListener("click", function () {
+            if (window.confirm("Remove this rule?")) {
+              row.remove();
+              syncRulesEmpty();
+            }
+          });
+        }
+        initUserPicker(row.querySelector(".cdg-user-picker"));
+      }
+
+      rulesList.querySelectorAll(".cdg-rule-item").forEach(initRuleRow);
+
+      ruleAddBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var html = ruleTemplate.innerHTML.replace(/__INDEX__/g, String(ruleCounter));
+        ruleCounter++;
+
+        var tmp = document.createElement("div");
+        tmp.innerHTML = html;
+        var row = tmp.firstElementChild;
+
+        var idField = row.querySelector(".cdg-rule-id");
+        if (idField) idField.value = generateHex(8);
+
+        row.classList.remove("cdg-rule-collapsed");
+        rulesList.appendChild(row);
+        initRuleRow(row);
+        syncRulesEmpty();
+
+        var nameInput = row.querySelector(".cdg-rule-name");
+        if (nameInput) nameInput.focus();
+      });
+
+      syncRulesEmpty();
+    }
+
+    // ── Sidebar tab: user picker (Visibility Rules · Assign to Users) ──
+    // Uses admin-ajax with a nonce; server-side sanitizer double-checks
+    // that IDs correspond to real users. See CDG_Core_Admin::ajax_user_search().
+    function initUserPicker(picker) {
+      if (!picker || picker.dataset.initialized === "1") return;
+      picker.dataset.initialized = "1";
+
+      var name        = picker.dataset.name || "";
+      var nonce       = picker.dataset.nonce || "";
+      var chipsWrap   = picker.querySelector(".cdg-user-chips");
+      var search      = picker.querySelector(".cdg-user-search");
+      var suggestions = picker.querySelector(".cdg-user-suggestions");
+      if (!chipsWrap || !search || !suggestions) return;
+
+      function selectedIds() {
+        return Array.prototype.slice.call(chipsWrap.querySelectorAll(".cdg-rules-user-chip"))
+          .map(function (c) { return c.dataset.id; });
+      }
+
+      function addChip(user) {
+        if (selectedIds().indexOf(String(user.id)) !== -1) return;
+        var chip = document.createElement("span");
+        chip.className = "cdg-rules-user-chip";
+        chip.dataset.id = String(user.id);
+        chip.innerHTML =
+          '<span></span>' +
+          '<button type="button" class="cdg-rules-user-remove" title="Remove" aria-label="Remove">&times;</button>' +
+          '<input type="hidden" value="' + user.id + '">';
+        chip.querySelector("span").textContent = user.label;
+        chip.querySelector("input").name = name + "[]";
+        chip.querySelector(".cdg-rules-user-remove").addEventListener("click", function () {
+          chip.remove();
+        });
+        chipsWrap.appendChild(chip);
+      }
+
+      // Bind existing chips' remove buttons.
+      chipsWrap.querySelectorAll(".cdg-rules-user-remove").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          btn.closest(".cdg-rules-user-chip").remove();
+        });
+      });
+
+      function closeSuggestions() {
+        suggestions.innerHTML = "";
+        suggestions.setAttribute("hidden", "");
+      }
+
+      function renderResults(rows) {
+        suggestions.innerHTML = "";
+        if (!rows.length) {
+          var empty = document.createElement("div");
+          empty.className   = "cdg-user-suggestion-empty";
+          empty.textContent = "No matches.";
+          suggestions.appendChild(empty);
+        } else {
+          rows.forEach(function (u) {
+            var b = document.createElement("button");
+            b.type        = "button";
+            b.className   = "cdg-user-suggestion";
+            b.textContent = u.label;
+            b.addEventListener("click", function () {
+              addChip(u);
+              search.value = "";
+              closeSuggestions();
+              search.focus();
+            });
+            suggestions.appendChild(b);
+          });
+        }
+        suggestions.removeAttribute("hidden");
+      }
+
+      var searchTimer = null;
+      search.addEventListener("input", function () {
+        clearTimeout(searchTimer);
+        var q = search.value.trim();
+        if (q.length < 2) {
+          closeSuggestions();
+          return;
+        }
+        searchTimer = setTimeout(function () {
+          var url = (window.ajaxurl || "/wp-admin/admin-ajax.php") +
+            "?action=cdg_core_user_search&nonce=" + encodeURIComponent(nonce) +
+            "&q=" + encodeURIComponent(q);
+          fetch(url, { credentials: "same-origin" })
+            .then(function (r) { return r.json(); })
+            .then(function (json) {
+              if (json && json.success) renderResults(json.data || []);
+            })
+            .catch(function () {});
+        }, 200);
+      });
+
+      document.addEventListener("click", function (e) {
+        if (!picker.contains(e.target)) closeSuggestions();
+      });
+    }
+
+    // Rules card's rules are initialized inside initRuleRow above, but any
+    // pickers rendered elsewhere (e.g. a future card that reuses the helper)
+    // still need to boot.
+    document.querySelectorAll(".cdg-user-picker").forEach(initUserPicker);
 
     // ── Sidebar tab: dashicon picker ──
     var CDG_ICONS = [
@@ -527,6 +779,9 @@
             }
           });
         }
+
+        // Rules dropdown inside the link row (Hidden For Rules).
+        row.querySelectorAll(".cdg-rules-dropdown").forEach(initRulesDropdown);
       }
 
       // Init existing rows (server-rendered).

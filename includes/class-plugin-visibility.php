@@ -2,17 +2,16 @@
 /**
  * Plugin Visibility & Sidebar Manager
  *
- * Renames and hides top-level sidebar menu entries per-role, and injects
- * custom menu links, via the admin_menu hook. Targetable roles are
- * Administrator, Manager, and Staff (see CDG_Core_Roles::target_roles()).
- *
- * Also filters the Installed Plugins list itself (`all_plugins`) so specific
- * plugins can be hidden from any role — every native WordPress role
- * included, not just the three above (see CDG_Core_Roles::hideable_roles()).
+ * Renames and hides top-level sidebar menu entries, injects custom menu
+ * links, and filters the Installed Plugins list, all via a shared set of
+ * named Visibility Rules (see CDG_Core_Visibility_Rules). A rule bundles
+ * together role slugs and specific user IDs; every hide field on the
+ * Sidebar tab stores rule IDs, and matches_current_user() resolves them at
+ * runtime.
  *
  * The CDG staff ("Agency") account is a plain Administrator account (see
  * CDG_Core_Roles::is_agency_user()) and would otherwise be caught by any
- * rule configured against Administrator. Every hide/visibility check below
+ * rule targeting Administrator. Every hide/visibility check below
  * explicitly exempts it first, so it always sees the full, unmodified
  * sidebar and every installed plugin, regardless of what's configured.
  *
@@ -158,7 +157,6 @@ class CDG_Core_Plugin_Visibility
 
         $current_user = wp_get_current_user();
         $is_agency    = CDG_Core_Roles::is_agency_user($current_user, $this->plugin);
-        $user_roles   = $current_user->roles;
         $names        = (array) $this->plugin->get_setting('sidebar_entry_names');
         $hidden       = (array) $this->plugin->get_setting('sidebar_entry_hidden');
         $sub_names    = (array) $this->plugin->get_setting('sidebar_submenu_names');
@@ -179,11 +177,9 @@ class CDG_Core_Plugin_Visibility
                 $menu[$pos][0] = esc_html($names[$slug]);
             }
 
-            // Hide (per-role — Administrator, Manager, and Staff are all
-            // targetable; the agency account bypasses this unconditionally).
+            // Hide (per-rule — Agency bypasses every rule unconditionally).
             if (!$is_agency && isset($hidden[$slug])) {
-                $roles = (array) $hidden[$slug];
-                if (array_intersect($user_roles, $roles)) {
+                if (CDG_Core_Visibility_Rules::matches_current_user((array) $hidden[$slug], $this->plugin)) {
                     remove_menu_page($slug);
                     // Parent is gone — its submenu is inaccessible from the
                     // nav either way, so there's nothing more to do here.
@@ -207,8 +203,8 @@ class CDG_Core_Plugin_Visibility
                 }
 
                 if (!$is_agency && isset($sub_hidden[$slug]) && is_array($sub_hidden[$slug])) {
-                    foreach ($sub_hidden[$slug] as $sub_slug => $sub_roles) {
-                        if (array_intersect($user_roles, (array) $sub_roles)) {
+                    foreach ($sub_hidden[$slug] as $sub_slug => $sub_rule_ids) {
+                        if (CDG_Core_Visibility_Rules::matches_current_user((array) $sub_rule_ids, $this->plugin)) {
                             remove_submenu_page($slug, $sub_slug);
                         }
                     }
@@ -232,7 +228,6 @@ class CDG_Core_Plugin_Visibility
 
         $current_user = wp_get_current_user();
         $is_agency    = CDG_Core_Roles::is_agency_user($current_user, $this->plugin);
-        $user_roles   = $current_user->roles;
         $max_pos      = !empty($menu) ? max(array_keys($menu)) : 80;
 
         foreach ($links as $index => $link) {
@@ -246,10 +241,10 @@ class CDG_Core_Plugin_Visibility
                 continue;
             }
 
-            // Visibility check (per-role) — the agency account bypasses
-            // this unconditionally.
+            // Visibility check (per-rule) — Agency bypasses every rule
+            // unconditionally.
             $hidden_for = (array) ($link['hidden_for'] ?? []);
-            if (!$is_agency && array_intersect($user_roles, $hidden_for)) {
+            if (!$is_agency && CDG_Core_Visibility_Rules::matches_current_user($hidden_for, $this->plugin)) {
                 continue;
             }
 
@@ -303,9 +298,10 @@ class CDG_Core_Plugin_Visibility
 
     /**
      * Remove configured plugins from the Installed Plugins list (and
-     * anywhere else `all_plugins` is consulted) for the current user's
-     * role(s). The agency account always bypasses this entirely, regardless
-     * of what's configured — including any rule targeting Administrator.
+     * anywhere else `all_plugins` is consulted) for the current user, based
+     * on the Sidebar tab's Plugin Visibility rules. Agency always bypasses
+     * this entirely, regardless of what's configured — including any rule
+     * targeting Administrator.
      *
      * @param array<string, array<string, string>> $plugins Installed plugins keyed by plugin file.
      * @return array<string, array<string, string>>
@@ -318,14 +314,13 @@ class CDG_Core_Plugin_Visibility
             return $plugins;
         }
 
-        $user_roles = $current_user->roles;
-        $hidden     = (array) $this->plugin->get_setting('hidden_plugins');
+        $hidden = (array) $this->plugin->get_setting('hidden_plugins');
         if (empty($hidden)) {
             return $plugins;
         }
 
-        foreach ($hidden as $plugin_file => $roles) {
-            if (array_intersect($user_roles, (array) $roles)) {
+        foreach ($hidden as $plugin_file => $rule_ids) {
+            if (CDG_Core_Visibility_Rules::matches_current_user((array) $rule_ids, $this->plugin)) {
                 unset($plugins[$plugin_file]);
             }
         }
