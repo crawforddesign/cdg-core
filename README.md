@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.10.0
+## Version 1.10.1
 
 ### Requirements
 
@@ -246,6 +246,10 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.10.1
+
+- Broadened Agency recognition. `CDG_Core_Roles::is_agency_user()` now returns true if any of the following match, case-insensitive: the site's configured Agency Email, the hard-coded default `support@crawforddesigngp.com` (always counts, even after the setting is changed), or the username `cdgsupport`. The visibility-bypass side (Sidebar Menu Items, Custom Menu Links, Plugin Visibility) runs regardless of the Enable Custom Roles toggle now, so CDG support always sees the full sidebar and every installed plugin. The auto-Administrator-assignment side stays gated on Enable Custom Roles, since forcibly rewriting a user's role is a role-management concern rather than a visibility one.
 
 #### 1.10.0
 
