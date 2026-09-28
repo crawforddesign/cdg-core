@@ -347,17 +347,73 @@
         });
       }
 
+      // Position the panel as fixed relative to the trigger, so it can
+      // escape ancestor `overflow: hidden` (the .cdg-card) and the vertical
+      // clamp of .cdg-scroll-region-tall. Flip upward if there is not
+      // enough room below the trigger.
+      function positionPanel() {
+        var rect      = trigger.getBoundingClientRect();
+        var viewportH = window.innerHeight || document.documentElement.clientHeight;
+        var spaceBelow = viewportH - rect.bottom - 8;
+        var spaceAbove = rect.top - 8;
+        var flipUp     = spaceBelow < 180 && spaceAbove > spaceBelow;
+        var maxH       = Math.max(120, Math.min(240, flipUp ? spaceAbove : spaceBelow));
+
+        panel.style.position  = "fixed";
+        panel.style.left      = rect.left + "px";
+        panel.style.width     = rect.width + "px";
+        panel.style.right     = "auto";
+        panel.style.maxHeight = maxH + "px";
+        if (flipUp) {
+          panel.style.top    = "auto";
+          panel.style.bottom = (viewportH - rect.top + 4) + "px";
+        } else {
+          panel.style.top    = (rect.bottom + 4) + "px";
+          panel.style.bottom = "auto";
+        }
+      }
+
+      function resetPanelPosition() {
+        panel.style.position  = "";
+        panel.style.top       = "";
+        panel.style.left      = "";
+        panel.style.right     = "";
+        panel.style.bottom    = "";
+        panel.style.width     = "";
+        panel.style.maxHeight = "";
+      }
+
       trigger.addEventListener("click", function (e) {
         e.stopPropagation();
         if (openRulesDropdown && openRulesDropdown !== dd) {
           openRulesDropdown.classList.remove("cdg-rules-open");
           var otherPanel = openRulesDropdown.querySelector(".cdg-rules-panel");
-          if (otherPanel) otherPanel.setAttribute("hidden", "");
+          if (otherPanel) {
+            otherPanel.setAttribute("hidden", "");
+            if (openRulesDropdown._cdgReset) openRulesDropdown._cdgReset();
+          }
         }
         var open = dd.classList.toggle("cdg-rules-open");
         panel.toggleAttribute("hidden", !open);
+        if (open) {
+          positionPanel();
+          window.addEventListener("scroll", positionPanel, true);
+          window.addEventListener("resize", positionPanel);
+        } else {
+          window.removeEventListener("scroll", positionPanel, true);
+          window.removeEventListener("resize", positionPanel);
+          resetPanelPosition();
+        }
         openRulesDropdown = open ? dd : null;
       });
+
+      // Expose a reset hook so another dropdown opening (or the
+      // outside-click handler) can undo this one's inline positioning.
+      dd._cdgReset = function () {
+        window.removeEventListener("scroll", positionPanel, true);
+        window.removeEventListener("resize", positionPanel);
+        resetPanelPosition();
+      };
 
       panel.addEventListener("change", function (e) {
         if (e.target && e.target.matches('input[type="checkbox"]')) {
@@ -423,6 +479,7 @@
         openRulesDropdown.classList.remove("cdg-rules-open");
         var p = openRulesDropdown.querySelector(".cdg-rules-panel");
         if (p) p.setAttribute("hidden", "");
+        if (openRulesDropdown._cdgReset) openRulesDropdown._cdgReset();
         openRulesDropdown = null;
       }
     });

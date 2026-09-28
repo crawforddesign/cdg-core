@@ -2145,7 +2145,7 @@ textarea.cdg-input {
   padding: 4px 10px;
   border: 1px solid var(--cdg-border);
   border-radius: 6px;
-  background: var(--cdg-bg);
+  background: var(--cdg-surface);
   color: var(--cdg-fg);
   cursor: pointer;
   font-size: 12px;
@@ -2193,8 +2193,8 @@ textarea.cdg-input {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  z-index: 1000;
-  background: var(--cdg-bg);
+  z-index: 10000;
+  background: var(--cdg-surface);
   border: 1px solid var(--cdg-border);
   border-radius: 6px;
   box-shadow: 0 6px 18px rgba(0,0,0,.10);
