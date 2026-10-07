@@ -3002,7 +3002,7 @@ class CDG_Core_Admin
         echo '<div class="cdg-guide-body cdg-guide-group">';
         $this->guide_item(
           "Auto-Generate Form Page",
-          'When creating a new form, the "Add New Form" flyout includes an "Auto-Generate Form Page" checkbox. When checked, CDG Core automatically creates a published page under <code>/forms/</code> pre-loaded with a Divi 5 GF Styler module pointing at the new form. A "View Form Page" button is injected into the form editor toolbar so you can jump to the page immediately.'
+          'When creating a new form, the "Add New Form" flyout includes an "Auto-Generate Form Page" checkbox. When checked, CDG Core automatically creates a published page under <code>/forms/</code> pre-loaded with a native Divi 5 Gravity Forms module pointing at the new form. A "View Form Page" button is injected into the form editor toolbar so you can jump to the page immediately.'
         );
         echo "</div>";
         echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Auto-generated form pages use the <code>cdg_form</code> custom post type. They are deleted (moved to Trash) automatically when the associated Gravity Forms form is deleted.</span></div>';
