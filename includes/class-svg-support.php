@@ -89,8 +89,63 @@ class CDG_Core_SVG_Support
             3,
         );
 
+        // Give SVG attachments real width/height in their saved metadata.
+        // WordPress core assumes every image has them, and logs "undefined
+        // array key" warnings (e.g. on REST uploads) when they're missing.
+        add_filter("wp_generate_attachment_metadata", [$this, "add_svg_metadata"], 10, 2);
+        add_filter("wp_get_attachment_metadata", [$this, "fill_svg_metadata"], 10, 2);
+
         // Allow SVG in attachment display
         add_action("admin_head", [$this, "svg_admin_styles"]);
+    }
+
+    /**
+     * Store width/height for a newly uploaded SVG.
+     *
+     * @param array<string, mixed> $metadata Attachment metadata
+     * @param int $attachment_id Attachment ID
+     * @return array<string, mixed>
+     */
+    public function add_svg_metadata($metadata, $attachment_id)
+    {
+        if (get_post_mime_type($attachment_id) !== "image/svg+xml") {
+            return $metadata;
+        }
+
+        $metadata = is_array($metadata) ? $metadata : [];
+        $dimensions = $this->get_svg_dimensions((int) $attachment_id) ?? [
+            "width" => 0,
+            "height" => 0,
+        ];
+
+        $metadata["width"] = $dimensions["width"];
+        $metadata["height"] = $dimensions["height"];
+        $metadata["file"] = $metadata["file"] ?? get_post_meta($attachment_id, "_wp_attached_file", true);
+        $metadata["sizes"] = $metadata["sizes"] ?? [];
+
+        return $metadata;
+    }
+
+    /**
+     * Fill in missing width/height on SVG attachments uploaded before
+     * this existed, so reading their metadata never trips core warnings.
+     *
+     * @param mixed $metadata Attachment metadata
+     * @param int $attachment_id Attachment ID
+     * @return mixed
+     */
+    public function fill_svg_metadata($metadata, $attachment_id)
+    {
+        if (
+            is_array($metadata) && isset($metadata["width"], $metadata["height"])
+        ) {
+            return $metadata;
+        }
+        if (get_post_mime_type($attachment_id) !== "image/svg+xml") {
+            return $metadata;
+        }
+
+        return $this->add_svg_metadata($metadata, (int) $attachment_id);
     }
 
     /**

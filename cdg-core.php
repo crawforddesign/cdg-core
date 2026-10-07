@@ -4,7 +4,7 @@
  * Plugin URI: https://crawforddesigngroup.com
  * Update URI: https://github.com/crawforddesign/cdg-core
  * Description: WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
- * Version: 1.10.2
+ * Version: 1.11.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: Crawford Design Group
@@ -37,7 +37,7 @@ if (!class_exists("CDG_Core")) {
   /**
    * Plugin Constants
    */
-  define("CDG_CORE_VERSION", "1.10.2");
+  define("CDG_CORE_VERSION", "1.11.0");
   define("CDG_CORE_DIR", plugin_dir_path(__FILE__));
   define("CDG_CORE_URL", plugin_dir_url(__FILE__));
   define("CDG_CORE_BASENAME", plugin_basename(__FILE__));
@@ -178,6 +178,12 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
       "font_admin_only" => true,
       "enable_lottie_uploads" => false,
       "lottie_admin_only" => true,
+      "enable_webp" => false,
+      "webp_mode" => "convert", // convert | compress | both
+      "webp_quality" => 80,
+      "webp_resize" => false,
+      "webp_max_width" => 2400,
+      "webp_backup_retention_days" => 30,
 
       // Dashboard Widgets
       "remove_quick_draft" => true,
@@ -544,6 +550,13 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
       // Lottie Support - initialize regardless of setting (class checks internally)
       new CDG_Core_Lottie_Support($this);
 
+      // Image optimization (WebP / compress / resize) - class checks setting internally
+      new CDG_Core_WebP_Support($this);
+
+      // Bulk tools (AJAX + WP-CLI) and the backup-expiry cron.
+      (new CDG_Core_WebP_Bulk($this))->register_hooks();
+      (new CDG_Core_WebP_Backup())->register_hooks();
+
       // Login Page
       new CDG_Core_Login($this);
 
@@ -853,6 +866,8 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
    */
   register_deactivation_hook(__FILE__, function (): void {
     flush_rewrite_rules();
+
+    wp_clear_scheduled_hook(CDG_Core_WebP_Backup::CRON_HOOK);
 
     $timestamp = wp_next_scheduled("cdg_core_cleanup_expired_transients");
     if ($timestamp) {

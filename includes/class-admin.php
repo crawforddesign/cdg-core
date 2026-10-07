@@ -304,6 +304,15 @@ class CDG_Core_Admin
         $s["font_admin_only"] = !empty($input["font_admin_only"]);
         $s["enable_lottie_uploads"] = !empty($input["enable_lottie_uploads"]);
         $s["lottie_admin_only"] = !empty($input["lottie_admin_only"]);
+        $s["enable_webp"] = !empty($input["enable_webp"]);
+        $mode = sanitize_text_field($input["webp_mode"] ?? "convert");
+        $s["webp_mode"] = in_array($mode, ["convert", "compress", "both"], true)
+          ? $mode
+          : "convert";
+        $s["webp_quality"] = max(1, min(100, absint($input["webp_quality"] ?? 80)));
+        $s["webp_resize"] = !empty($input["webp_resize"]);
+        $s["webp_max_width"] = max(320, min(10000, absint($input["webp_max_width"] ?? 2400)));
+        $s["webp_backup_retention_days"] = max(7, min(90, absint($input["webp_backup_retention_days"] ?? 30)));
         break;
 
       case "roles":
@@ -803,6 +812,79 @@ class CDG_Core_Admin
       esc_html($label) .
       "</span>" .
       "</label>";
+  }
+
+  /**
+   * Markup for the bulk tools: optimize existing images, back up, replace
+   * originals, restore. All behavior lives in admin-script.js, which talks
+   * to the CDG_Core_WebP_Bulk / _Backup AJAX endpoints.
+   *
+   * These are type="button" controls inside the settings <form> — they run
+   * jobs immediately and never submit it. Jobs use the SAVED settings.
+   */
+  private function webp_tools_markup(): void
+  {
+    $info = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>';
+    ?>
+    <div id="cdg-webp-tools" class="cdg-webp-tools"
+         data-ajax="<?php echo esc_url(admin_url("admin-ajax.php")); ?>"
+         data-nonce="<?php echo esc_attr(wp_create_nonce("cdg_webp")); ?>">
+
+      <div class="cdg-notice cdg-notice-info">
+        <?php echo $info; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+        <span>These tools act on images already in your Media Library and use your <strong>saved</strong> settings &mdash; click Save Changes first if you just edited them.</span>
+      </div>
+
+      <div id="cdg-webp-unsupported" class="cdg-notice cdg-notice-warn" hidden>
+        <?php echo $info; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+        <span>This server can&#8217;t write WebP files (neither Imagick with WebP nor GD <code>imagewebp()</code> is available). Conversion will not work here.</span>
+      </div>
+
+      <div class="cdg-webp-block">
+        <div class="cdg-webp-title">1. Optimize existing images</div>
+        <p class="cdg-webp-desc" id="cdg-webp-summary">Loading&hellip;</p>
+        <div class="cdg-webp-actions">
+          <button type="button" class="cdg-btn cdg-btn-secondary" data-act="bulk" id="cdg-webp-bulk-btn">Convert existing images</button>
+          <button type="button" class="cdg-btn cdg-btn-ghost" data-act="preview-convert" title="Counts what this step would do. Changes nothing.">Preview (dry run)</button>
+          <button type="button" class="cdg-btn cdg-btn-link" data-act="cancel" hidden>Cancel</button>
+        </div>
+        <div class="cdg-progress" data-progress="bulk" hidden><div class="cdg-progress-bar"></div></div>
+        <div class="cdg-webp-msg" data-msg="bulk" aria-live="polite"></div>
+      </div>
+
+      <div class="cdg-webp-block">
+        <div class="cdg-webp-title">2. Back up originals</div>
+        <p class="cdg-webp-desc">Saves a zip of every JPG and PNG in your uploads folder. Required before you replace originals or compress existing images. It must be under 24 hours old and newer than your latest upload, so make a new one if you add images.</p>
+        <div class="cdg-webp-actions">
+          <button type="button" class="cdg-btn cdg-btn-secondary" data-act="backup">Create backup</button>
+        </div>
+        <div class="cdg-webp-msg" data-msg="backup" aria-live="polite"></div>
+      </div>
+
+      <div class="cdg-webp-block cdg-webp-block-danger" id="cdg-webp-replace-block">
+        <div class="cdg-webp-title">3. Replace originals with WebP <span class="cdg-webp-tag">Permanent</span></div>
+        <p class="cdg-webp-desc">Rewrites image links in every post, page, template and block, switches each image in the Media Library to its WebP version, and <strong>deletes the original JPG/PNG files</strong>. Run step 1 and step 2 first. You can undo it with Restore for as long as the backup exists.</p>
+        <div class="cdg-webp-actions">
+          <button type="button" class="cdg-btn cdg-btn-warn" data-act="replace">Replace originals</button>
+          <button type="button" class="cdg-btn cdg-btn-ghost" data-act="preview-replace" title="Counts what this step would change. Changes nothing.">Preview (dry run)</button>
+          <button type="button" class="cdg-btn cdg-btn-secondary" data-act="restore">Restore from backup</button>
+        </div>
+        <div class="cdg-progress" data-progress="replace" hidden><div class="cdg-progress-bar"></div></div>
+        <div class="cdg-webp-msg" data-msg="replace" aria-live="polite"></div>
+      </div>
+
+      <div class="cdg-webp-block">
+        <div class="cdg-webp-title">4. Free up space <span class="cdg-webp-tag cdg-webp-tag-soft">Optional</span></div>
+        <p class="cdg-webp-desc">When WordPress shrinks or rotates a very large upload, it keeps the untouched original next to the resized copy. Nothing on your site normally uses those leftover originals. This deletes the ones that are safe to remove. Any original that a page, layout, setting or saved revision still links to is kept. They&#8217;re included in your backup, so Restore brings them back. Needs a current backup (step 2).</p>
+        <div class="cdg-webp-actions">
+          <button type="button" class="cdg-btn cdg-btn-secondary" data-act="cleanup">Delete leftover originals</button>
+          <button type="button" class="cdg-btn cdg-btn-ghost" data-act="preview-cleanup" title="Counts what this step would delete. Changes nothing.">Preview (dry run)</button>
+        </div>
+        <div class="cdg-progress" data-progress="cleanup" hidden><div class="cdg-progress-bar"></div></div>
+        <div class="cdg-webp-msg" data-msg="cleanup" aria-live="polite"></div>
+      </div>
+    </div>
+    <?php
   }
 
   private function section_label(string $text, string $suffix = ""): void
@@ -1667,6 +1749,80 @@ class CDG_Core_Admin
           "cdg-lottie-admin-row",
           !$s["enable_lottie_uploads"] ? "cdg-disabled" : ""
         );
+      }
+    );
+
+    $this->card(
+      "Image Optimization",
+      "Optimize images as they are uploaded. WebP files are served on the front end; originals are kept unless you compress them.",
+      function () use ($s) {
+        $this->row(
+          "Optimize Images on Upload",
+          "Applies to JPG and PNG uploads, including every generated size.",
+          $this->sw("enable_webp", !empty($s["enable_webp"]))
+        );
+
+        echo '<div id="cdg-webp-sub-settings" class="' .
+          (empty($s["enable_webp"]) ? "cdg-disabled" : "") .
+          '">';
+
+        $this->row(
+          "Mode",
+          "",
+          $this->radio_group(
+            "webp_mode",
+            [
+              "convert"  => ["Convert only", "Writes a WebP copy next to each image. Originals are untouched."],
+              "compress" => ["Compress only", "Re-encodes the original JPG/PNG in place at the level below."],
+              "both"     => ["Convert + Compress", "Makes the WebP first, then compresses the original."],
+            ],
+            (string) ($s["webp_mode"] ?? "convert")
+          ),
+          true,
+          "",
+          "cdg-row-stack"
+        );
+
+        $this->row(
+          "Compression Level",
+          "Quality from 1 to 100. Around 80 is a good balance of size and sharpness; lower is smaller.",
+          '<input type="number" name="webp_quality" value="' .
+            esc_attr((int) ($s["webp_quality"] ?? 80)) .
+            '" min="1" max="100" class="cdg-input-inline">',
+          true
+        );
+
+        $this->row(
+          "Resize Large Uploads",
+          "Proportionally shrinks images wider than the max width. Never enlarges, and applies to new uploads only.",
+          $this->sw("webp_resize", !empty($s["webp_resize"])),
+          true
+        );
+
+        $this->row(
+          "Max Width (px)",
+          "For example, a 6,000px upload becomes 2,400px wide with the height scaled to match.",
+          '<input type="number" name="webp_max_width" value="' .
+            esc_attr((int) ($s["webp_max_width"] ?? 2400)) .
+            '" min="320" max="10000" step="10" class="cdg-input-inline">',
+          true,
+          "cdg-webp-resize-row",
+          empty($s["webp_resize"]) ? "cdg-disabled" : ""
+        );
+
+        $this->row(
+          "Keep Backups For (days)",
+          "How long the originals backup zip is kept before it is deleted automatically. Between 7 and 90 days.",
+          '<input type="number" name="webp_backup_retention_days" value="' .
+            esc_attr((int) ($s["webp_backup_retention_days"] ?? 30)) .
+            '" min="7" max="90" class="cdg-input-inline">',
+          true
+        );
+
+        $this->section_label("Existing Images");
+        $this->webp_tools_markup();
+
+        echo "</div>";
       }
     );
   }
@@ -3016,6 +3172,151 @@ class CDG_Core_Admin
           "Enables <code>.json</code> and <code>.lottie</code> animation files in the Media Library. Restrict to administrators unless editors manage their own animation assets."
         );
         echo "</div>";
+      }
+    );
+
+    // ── Image Optimization ────────────────────────────────────
+    $this->card(
+      "Image Optimization",
+      "Make your pages load faster by converting and shrinking images. Find it under Settings &rsaquo; CDG Core &rsaquo; Performance, in the Image Optimization card.",
+      function () {
+        $this->section_label("What it does");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "Faster pages, same look",
+          "Image Optimization turns your photos and graphics into WebP, a newer image type with smaller files than JPG or PNG and the same look. It can also shrink the original files and scale down oversized uploads. Smaller images load faster and use less data on phones."
+        );
+        $this->guide_item(
+          "It runs on its own",
+          "Once it&#8217;s on, it optimizes every image you upload. You can handle the images already in your Media Library in one pass with the Existing Images tools (see below)."
+        );
+        $this->guide_item(
+          "Is it safe?",
+          "Yes. In Convert mode your original images stay in the Media Library untouched. Nothing is deleted unless you choose Replace originals, and that step requires a backup first."
+        );
+        echo "</div>";
+
+        $this->section_label("How to turn it on");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "Steps",
+          "<ol><li>Go to <strong>Settings &rsaquo; CDG Core &rsaquo; Performance</strong> and scroll down to <strong>Image Optimization</strong>.</li><li>Switch on <strong>Optimize Images on Upload</strong>.</li><li>Choose a <strong>Mode</strong> (explained next).</li><li>Click <strong>Save Changes</strong>.</li></ol>New uploads get optimized from then on. Images already in your Media Library stay as they are until you run the Existing Images tools."
+        );
+        echo "</div>";
+
+        $this->section_label("Which mode should I choose?");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "Convert only (best place to start)",
+          "Makes a WebP copy of each image and shows that copy to your visitors. Your original JPG or PNG stays in the Media Library, so you can go back at any time."
+        );
+        $this->guide_item(
+          "Compress only",
+          "Shrinks the original JPG or PNG file and keeps the same file type. Choose this if you don&#8217;t want WebP images. It replaces the original file with the smaller version, so take a backup before you run it on images you already have."
+        );
+        $this->guide_item(
+          "Convert + Compress",
+          "Makes the WebP copy, then shrinks the original too."
+        );
+        $this->guide_item(
+          "Compression Level",
+          "A number from 1 to 100. Around 80 balances small files and sharp images. A lower number gives smaller files and a softer picture. A higher number keeps more detail and makes bigger files."
+        );
+        echo "</div>";
+        echo '<div class="cdg-guide-note">' . '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>' . '<span>All current browsers show WebP. Browsers more than about five years old may not.</span></div>';
+
+        $this->section_label("How to shrink very large uploads");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "Steps",
+          "<ol><li>In the Image Optimization card, switch on <strong>Resize Large Uploads</strong>.</li><li>Set the <strong>Max Width</strong>. The default of 2,400 pixels suits most sites.</li><li>Click <strong>Save Changes</strong>.</li></ol>The plugin scales an image wider than your limit down to it, and shrinks the height by the same amount so nothing looks squashed. A photo 6,000 pixels wide becomes 2,400 pixels wide. It never enlarges a smaller image."
+        );
+        $this->guide_item(
+          "Good to know",
+          "Resizing applies to new uploads only. The plugin may leave a PNG that is a little over the limit as it is, when shrinking it would make the file bigger."
+        );
+        echo "</div>";
+
+        $this->section_label("How to preview before you change anything");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "Preview (dry run)",
+          "Steps 1, 3 and 4 each have a <strong>Preview (dry run)</strong> button. It scans your site the same way the real step does and reports what it would do, such as how many images it found, how many pages it would update and how much space it would free. It changes nothing, so you can run it as often as you like."
+        );
+        echo "</div>";
+
+        $this->section_label("How to optimize images you already have");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "Steps",
+          "<ol><li>Click <strong>Save Changes</strong> first. These tools use your saved settings.</li><li>Under <strong>Existing Images</strong>, find <strong>1. Optimize existing images</strong> and click the button.</li><li>Watch the progress bar. Click <strong>Cancel</strong> to stop. If you close the page, come back later and click <strong>Resume</strong>.</li></ol>If your mode compresses, the tool asks for a recent backup before it changes your original files."
+        );
+        echo "</div>";
+
+        $this->section_label("How to back up your originals");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "Steps",
+          "<ol><li>Under <strong>Existing Images</strong>, find <strong>2. Back up originals</strong>.</li><li>Click <strong>Create backup</strong> and wait for the green confirmation.</li></ol>The backup is a single file holding a copy of every JPG and PNG you have. It must be less than 24 hours old and newer than your most recent upload, so create a new one if you add images after making it. The plugin keeps the backup for 30 days unless you change <strong>Keep Backups For</strong>."
+        );
+        echo "</div>";
+
+        $this->section_label("How to replace your originals with WebP (permanent)");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "What it does",
+          "Switches your whole site to the WebP images and deletes the original JPG and PNG files to free up space. It updates the image links in your pages, posts, templates and Divi layouts, and settings such as your logo."
+        );
+        $this->guide_item(
+          "Steps",
+          "<ol><li>Run <strong>1. Optimize existing images</strong> so every image has a WebP version.</li><li>Create a fresh backup in <strong>2. Back up originals</strong>.</li><li>In <strong>3. Replace originals with WebP</strong>, click <strong>Replace originals</strong> and confirm.</li><li>Keep the page open until it says <strong>Finished</strong>. If it stops partway, come back and click <strong>Resume replace</strong>.</li><li>Clear your site&#8217;s page cache (for example in SpinupWP). Cached pages keep pointing at the old files until you clear it.</li></ol>"
+        );
+        $this->guide_item(
+          "How to undo it",
+          "Click <strong>Restore from backup</strong>. The plugin puts your original files back and switches every link back. Restore works while the backup still exists, and it cannot bring back images you added after you made the backup."
+        );
+        echo "</div>";
+
+        $this->section_label("How to free up extra space (optional)");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "What it does",
+          "When you upload a large image, WordPress keeps the untouched original next to the resized copy. Most sites never use these leftover originals, and they take up space. <strong>4. Free up space</strong> deletes the ones that are safe to remove. It keeps an original if a page, layout, setting or saved revision still links to it."
+        );
+        $this->guide_item(
+          "Steps",
+          "<ol><li>Create a fresh backup in <strong>2. Back up originals</strong>.</li><li>In <strong>4. Free up space</strong>, click <strong>Delete leftover originals</strong> and confirm.</li></ol>Your backup includes the leftover originals, so Restore brings them back."
+        );
+        echo "</div>";
+
+        $this->section_label("Troubleshooting");
+        echo '<div class="cdg-guide-body cdg-guide-group">';
+        $this->guide_item(
+          "A warning says the server can&#8217;t write WebP files",
+          "Your hosting is missing the software that creates WebP images. Contact CDG support and we&#8217;ll turn it on."
+        );
+        $this->guide_item(
+          "The Replace originals button is greyed out",
+          "You need a backup that is less than 24 hours old and newer than your latest upload. Click <strong>Create backup</strong> in step 2, then try again."
+        );
+        $this->guide_item(
+          "I still see the old images after replacing",
+          "Your site&#8217;s page cache is showing older copies of your pages. Clear the page cache, then refresh your browser. If the old images stay, open the page in a private browsing window."
+        );
+        $this->guide_item(
+          "A job stopped halfway",
+          "Reload the page. A Resume button appears on the step that stopped. Click it to continue."
+        );
+        $this->guide_item(
+          "An image looks soft, or its colors look different",
+          "Raise the Compression Level, then upload the image again. Images the plugin already processed keep the level they were made with. Compressing an image removes extra information stored in the file, such as camera details. Photos with an unusual color profile can shift in color."
+        );
+        $this->guide_item(
+          "Compress didn&#8217;t make a file smaller",
+          "The file was already as small as the plugin could make it, so the plugin left it unchanged."
+        );
+        echo "</div>";
+        echo '<div class="cdg-guide-note">' . '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>' . '<span>The plugin saves backups in your uploads folder. Ask CDG support to confirm that your server blocks public access to the backup folder.</span></div>';
       }
     );
 
