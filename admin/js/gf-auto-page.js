@@ -55,6 +55,87 @@
     saveBtn.parentNode.insertBefore(btn, saveBtn.nextSibling);
   }
 
+  // ---------------------------------------------------------------------------
+  // Create Form Page button (existing / imported forms with no page yet)
+  // ---------------------------------------------------------------------------
+
+  function injectCreateButton(formId) {
+    if (document.getElementById("cdg-create-form-page-btn")) {
+      return;
+    }
+
+    var saveBtn = document.querySelector('[data-js="ajax-save-form"]');
+    if (!saveBtn) {
+      return;
+    }
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "cdg-create-form-page-btn";
+    btn.className =
+      "gform-button gform-button--white gform-button--size-r gform-button--width-auto";
+    btn.style.marginLeft = "8px";
+    btn.textContent = "Create Form Page";
+
+    btn.addEventListener("click", function () {
+      var slug = window.prompt(
+        "Page slug (the page will live at /forms/your-slug/):",
+        cdgAutoPage.defaultSlug || ""
+      );
+      if (slug === null) {
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Creating\u2026";
+
+      $.post(
+        cdgAutoPage.ajaxUrl,
+        {
+          action: "cdg_create_form_page",
+          form_id: formId,
+          post_slug: slugify(slug),
+          nonce: cdgAutoPage.nonce,
+        },
+        function (response) {
+          if (response.success && response.data.view_url) {
+            btn.remove();
+            injectViewButton(response.data.view_url);
+          } else {
+            btn.disabled = false;
+            btn.textContent = "Create Form Page";
+            window.alert(
+              (response.data && response.data.message) ||
+                "Could not create the form page."
+            );
+          }
+        }
+      ).fail(function () {
+        btn.disabled = false;
+        btn.textContent = "Create Form Page";
+        window.alert("Could not create the form page.");
+      });
+    });
+
+    saveBtn.parentNode.insertBefore(btn, saveBtn.nextSibling);
+  }
+
+  function waitForCreateButton(formId) {
+    if (document.querySelector('[data-js="ajax-save-form"]')) {
+      injectCreateButton(formId);
+      return;
+    }
+
+    var obs = new MutationObserver(function () {
+      injectCreateButton(formId);
+      if (document.getElementById("cdg-create-form-page-btn")) {
+        obs.disconnect();
+      }
+    });
+
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+
   // Retry injecting the button until the save button appears in the DOM.
   function waitForSaveButton(viewUrl) {
     if (document.getElementById("cdg-view-form-page-btn")) {
@@ -235,6 +316,17 @@
   // Inject button immediately if the page already has a form page.
   if (isEditor && cdgAutoPage.viewUrl) {
     waitForSaveButton(cdgAutoPage.viewUrl);
+  }
+
+  // Existing form with no page yet (imported or created before this plugin):
+  // offer a Create Form Page button. Skipped when the new-form flow below is
+  // about to create the page itself.
+  if (
+    isEditor &&
+    !cdgAutoPage.viewUrl &&
+    sessionStorage.getItem(STORAGE_KEY) !== "1"
+  ) {
+    waitForCreateButton(params.get("id"));
   }
 
   // New form flow: sessionStorage flag set by the flyout checkbox.

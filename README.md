@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.11.2
+## Version 1.11.3
 
 ### Requirements
 
@@ -264,6 +264,10 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.11.3
+
+- Gravity Forms: forms that don't have a page yet (imported forms, or forms created before the plugin) now get a **Create Form Page** button in the form editor, next to Save Form. It asks for a slug (defaults to the form title), creates the `cdg_form` page, then turns into **View Form Page**. Previously the page could only be generated from the Add New Form flyout.
 
 #### 1.11.2
 

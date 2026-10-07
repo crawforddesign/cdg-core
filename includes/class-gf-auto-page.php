@@ -115,13 +115,19 @@ class CDG_Core_GF_Auto_Page
             true
         );
 
-        $view_url = '';
-        $form_id  = absint($_GET['id'] ?? 0);
+        $view_url     = '';
+        $default_slug = '';
+        $form_id      = absint($_GET['id'] ?? 0);
 
         if ($form_id) {
             $post_id = absint(get_option(self::OPTION_PREFIX . $form_id, 0));
             if ($post_id && get_post($post_id)) {
                 $view_url = get_permalink($post_id);
+            }
+
+            if (!$view_url && class_exists('GFAPI')) {
+                $form         = GFAPI::get_form($form_id);
+                $default_slug = sanitize_title($form['title'] ?? '');
             }
         }
 
@@ -129,6 +135,7 @@ class CDG_Core_GF_Auto_Page
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce'   => wp_create_nonce(self::AJAX_ACTION),
             'viewUrl' => $view_url,
+            'defaultSlug' => $default_slug,
         ]);
     }
 
