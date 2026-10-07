@@ -25,6 +25,17 @@ class CDG_Core_WebP_Backup
     private const BACKUPS_OPTION = "cdg_webp_backups";
 
     /**
+     * Site option key for the backup currently being built.
+     */
+    private const JOB_OPTION = "cdg_webp_backup_job";
+
+    /**
+     * Per-request budget while filling the zip.
+     */
+    private const TICK_FILES   = 400;
+    private const TICK_SECONDS = 15;
+
+    /**
      * Subdirectory of /wp-content/uploads/ where backup zips live.
      * Public so the admin UI can link to / scan the directory if needed.
      */
@@ -43,6 +54,7 @@ class CDG_Core_WebP_Backup
     public function register_hooks(): void
     {
         add_action("wp_ajax_cdg_webp_create_backup", [$this, "ajax_create_backup"]);
+        add_action("wp_ajax_cdg_webp_tick_backup", [$this, "ajax_tick_backup"]);
         add_action(self::CRON_HOOK, [$this, "expire_old_backups"]);
         add_action("init", static function (): void {
             if (!wp_next_scheduled(self::CRON_HOOK)) {
@@ -84,9 +96,9 @@ class CDG_Core_WebP_Backup
     }
 
     /**
-     * AJAX entry point: build a new backup zip of all current PNG/JPG
-     * originals. Runs synchronously but in small batches so a huge
-     * library doesn't time out.
+     * AJAX: begin a backup. Lists every PNG/JPG into a manifest file and
+     * opens a job; the zip itself is filled in by repeated ajax_tick_backup
+     * calls so no single request can hit the web server's timeout.
      */
     public function ajax_create_backup(): void
     {
@@ -96,7 +108,7 @@ class CDG_Core_WebP_Backup
             wp_send_json_error(["message" => "forbidden"], 403);
         }
 
-        $result = $this->create_backup_zip();
+        $result = $this->start_backup_job();
         if (is_wp_error($result)) {
             wp_send_json_error(["message" => $result->get_error_message()]);
         }
@@ -104,12 +116,30 @@ class CDG_Core_WebP_Backup
     }
 
     /**
-     * Build a new backup zip. Returns an array describing the new file
-     * (path, size, expiry, file count), or a WP_Error on failure.
+     * AJAX: add the next batch of files to the zip. Returns progress, or
+     * the finished backup entry once every file is in.
+     */
+    public function ajax_tick_backup(): void
+    {
+        check_ajax_referer("cdg_webp", "nonce");
+
+        if (!current_user_can("manage_options")) {
+            wp_send_json_error(["message" => "forbidden"], 403);
+        }
+
+        $result = $this->tick_backup_job();
+        if (is_wp_error($result)) {
+            wp_send_json_error(["message" => $result->get_error_message()]);
+        }
+        wp_send_json_success($result);
+    }
+
+    /**
+     * Start a new backup job, discarding any unfinished one.
      *
      * @return array<string, mixed>|WP_Error
      */
-    public function create_backup_zip()
+    public function start_backup_job()
     {
         if (!class_exists("ZipArchive")) {
             return new \WP_Error(
@@ -118,52 +148,159 @@ class CDG_Core_WebP_Backup
             );
         }
 
+        $this->discard_job();
+
         $upload = wp_get_upload_dir();
         $basedir = $upload["basedir"];
-
-        $stamp = gmdate("Ymd-His");
-        $filename = "webp-originals-{$stamp}-" . wp_generate_password(12, false) . ".zip";
-        $path = $this->backup_dir() . "/" . $filename;
-
-        $zip = new \ZipArchive();
-        $opened = $zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
-        if ($opened !== true) {
+        $dir = $this->backup_dir();
+        if (!is_writable($dir)) {
             return new \WP_Error(
-                "zip_open_failed",
-                "Could not open backup zip for writing: {$path}",
+                "not_writable",
+                "The backup folder is not writable: {$dir}",
             );
         }
 
-        $count = 0;
-        $bytes = 0;
-
         $iter = $this->iter_original_files($basedir);
         if ($iter === null) {
-            $zip->close();
             return new \WP_Error(
                 "no_files",
                 "No original PNG/JPG files found in uploads.",
             );
         }
 
-        foreach ($iter as $abs_path) {
-            $rel = ltrim(
-                substr($abs_path, strlen($basedir)),
-                "/\\",
+        $token = wp_generate_password(12, false);
+        $manifest = "{$dir}/.job-{$token}.list";
+        $fh = @fopen($manifest, "wb");
+        if (!$fh) {
+            return new \WP_Error(
+                "manifest_failed",
+                "Could not write to the backup folder: {$dir}",
             );
-            $zip->addFile($abs_path, $rel);
-            $bytes += (int) @filesize($abs_path);
-            $count++;
-            // Flush every 500 files to keep memory bounded on huge libs
-            if ($count % 500 === 0) {
-                $zip->close();
-                $zip->open($path);
-            }
+        }
+        $total = 0;
+        foreach ($iter as $abs_path) {
+            fwrite($fh, substr($abs_path, strlen($basedir)) . "\n");
+            $total++;
+        }
+        fclose($fh);
+
+        if ($total === 0) {
+            @unlink($manifest);
+            return new \WP_Error(
+                "no_files",
+                "No original PNG/JPG files found in uploads.",
+            );
         }
 
-        $zip->close();
+        $stamp = gmdate("Ymd-His");
+        $filename = "webp-originals-{$stamp}-{$token}.zip";
 
-        if ($count === 0) {
+        update_option(
+            self::JOB_OPTION,
+            [
+                "path" => "{$dir}/{$filename}",
+                "filename" => $filename,
+                "manifest" => $manifest,
+                "offset" => 0,
+                "total" => $total,
+                "added" => 0,
+                // Files edited after this moment make the backup stale.
+                "started_at" => time(),
+            ],
+            false,
+        );
+
+        return ["done" => false, "added" => 0, "total" => $total];
+    }
+
+    /**
+     * Add the next batch of files to the job's zip. Stops at a file or
+     * time budget so each request stays short.
+     *
+     * @return array<string, mixed>|WP_Error
+     */
+    public function tick_backup_job()
+    {
+        $job = get_option(self::JOB_OPTION);
+        if (!is_array($job) || empty($job["manifest"]) || !is_file($job["manifest"])) {
+            return new \WP_Error(
+                "no_job",
+                "No backup is in progress. Start a new one.",
+            );
+        }
+
+        $upload = wp_get_upload_dir();
+        $basedir = $upload["basedir"];
+        $path = $job["path"];
+
+        $zip = new \ZipArchive();
+        $opened = $zip->open(
+            $path,
+            is_file($path) ? 0 : \ZipArchive::CREATE,
+        );
+        if ($opened !== true) {
+            $this->discard_job();
+            return new \WP_Error(
+                "zip_open_failed",
+                "Could not open backup zip for writing: {$path}",
+            );
+        }
+
+        $fh = fopen($job["manifest"], "rb");
+        if (!$fh) {
+            $zip->close();
+            $this->discard_job();
+            return new \WP_Error("manifest_failed", "Could not read the backup file list.");
+        }
+        fseek($fh, (int) $job["offset"]);
+
+        $deadline = microtime(true) + self::TICK_SECONDS;
+        $batch = 0;
+        while (
+            $batch < self::TICK_FILES &&
+            microtime(true) < $deadline &&
+            ($line = fgets($fh)) !== false
+        ) {
+            $rel = trim($line, "\r\n");
+            $abs = $basedir . $rel;
+            if ($rel !== "" && is_file($abs) && is_readable($abs)) {
+                $name = ltrim($rel, "/\\");
+                $zip->addFile($abs, $name);
+                // JPG/PNG are already compressed; storing them is far faster.
+                if (method_exists($zip, "setCompressionName")) {
+                    @$zip->setCompressionName($name, \ZipArchive::CM_STORE);
+                }
+                $job["added"]++;
+            }
+            $batch++;
+        }
+        $job["offset"] = (int) ftell($fh);
+        $eof = feof($fh) || fgets($fh) === false;
+        fclose($fh);
+
+        // Writing the zip happens here, so it's inside this request's budget.
+        $closed = $zip->close();
+        if ($closed !== true) {
+            $this->discard_job();
+            return new \WP_Error(
+                "zip_write_failed",
+                "Could not write the backup zip. Check disk space and folder permissions.",
+            );
+        }
+
+        if (!$eof) {
+            update_option(self::JOB_OPTION, $job, false);
+            return [
+                "done" => false,
+                "added" => (int) $job["added"],
+                "total" => (int) $job["total"],
+            ];
+        }
+
+        @unlink($job["manifest"]);
+        delete_option(self::JOB_OPTION);
+
+        if ((int) $job["added"] === 0 || !is_file($path)) {
             @unlink($path);
             return new \WP_Error(
                 "no_files",
@@ -172,16 +309,13 @@ class CDG_Core_WebP_Backup
         }
 
         clearstatcache(true, $path);
-        $size = (int) filesize($path);
-        $expires = time() + $this->get_retention_seconds();
-
         $entry = [
             "path" => $path,
-            "filename" => $filename,
-            "created_at" => time(),
-            "expires_at" => $expires,
-            "files" => $count,
-            "bytes" => $size,
+            "filename" => $job["filename"],
+            "created_at" => (int) $job["started_at"],
+            "expires_at" => time() + $this->get_retention_seconds(),
+            "files" => (int) $job["added"],
+            "bytes" => (int) filesize($path),
         ];
 
         $backups = get_option(self::BACKUPS_OPTION, []);
@@ -191,7 +325,26 @@ class CDG_Core_WebP_Backup
         $backups[] = $entry;
         update_option(self::BACKUPS_OPTION, $backups, false);
 
-        return $entry;
+        return ["done" => true, "backup" => $entry] + $entry;
+    }
+
+    /**
+     * Remove an unfinished job's manifest and partial zip.
+     *
+     * @return void
+     */
+    private function discard_job(): void
+    {
+        $job = get_option(self::JOB_OPTION);
+        if (is_array($job)) {
+            if (!empty($job["manifest"])) {
+                @unlink($job["manifest"]);
+            }
+            if (!empty($job["path"])) {
+                @unlink($job["path"]);
+            }
+        }
+        delete_option(self::JOB_OPTION);
     }
 
     /**

@@ -1201,10 +1201,19 @@
           post("cancel_bulk").catch(function () {});
         } else if (act === "backup") {
           setBusy(true);
-          msg("backup", "Creating backup… this can take a while on large libraries.", "");
-          post("create_backup").then(function (b) {
+          msg("backup", "Preparing backup\u2026", "");
+          bar("backup", 0, 1);
+          var bstep = function (st) {
+            if (st.done) return st;
+            bar("backup", st.added || 0, st.total || 1);
+            msg("backup", "Backing up\u2026 " + (st.added || 0) + " of " + (st.total || 0) + " files. Keep this page open.", "");
+            return post("tick_backup").then(bstep);
+          };
+          post("create_backup").then(bstep).then(function (b) {
+            bar("backup", 1, 1);
             msg("backup", "Backup created: " + plural(b.files, "file") + ", " + mb(b.bytes) + ".", "ok");
           }).catch(function (e) {
+            bar("backup", null);
             msg("backup", e.message, "error");
           }).then(function () { setBusy(false); return refresh(); });
         } else if (act === "replace") {

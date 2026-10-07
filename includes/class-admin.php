@@ -858,6 +858,7 @@ class CDG_Core_Admin
         <div class="cdg-webp-actions">
           <button type="button" class="cdg-btn cdg-btn-secondary" data-act="backup">Create backup</button>
         </div>
+        <div class="cdg-progress" data-progress="backup" hidden><div class="cdg-progress-bar"></div></div>
         <div class="cdg-webp-msg" data-msg="backup" aria-live="polite"></div>
       </div>
 

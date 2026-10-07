@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.11.1
+## Version 1.11.2
 
 ### Requirements
 
@@ -264,6 +264,10 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.11.2
+
+- Fixed "Create backup" (Image Optimization, step 2) stopping partway on large libraries. The whole zip was built in one request, so a web server timeout left an orphaned zip on disk that the plugin never recorded, and Replace then reported no backup. The backup now builds in short batches with a progress bar (keep the page open until it finishes), images are stored without recompression for speed, and the backup is only recorded once every file is in. Starting a new backup discards any unfinished one. Any zips already in `uploads/cdg-webp-backups/` from failed attempts can be deleted.
 
 #### 1.11.1
 
