@@ -409,7 +409,7 @@
 /* Inline number input inside a radio card (post revisions) */
 .cdg-input-inline {
   display: inline !important;
-  width: 56px !important;
+  width: 75px !important;
   height: 24px !important;
   padding: 0 6px !important;
   font-size: 12px !important;
@@ -2145,7 +2145,7 @@ textarea.cdg-input {
   padding: 4px 10px;
   border: 1px solid var(--cdg-border);
   border-radius: 6px;
-  background: var(--cdg-bg);
+  background: var(--cdg-surface);
   color: var(--cdg-fg);
   cursor: pointer;
   font-size: 12px;
@@ -2193,8 +2193,8 @@ textarea.cdg-input {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  z-index: 1000;
-  background: var(--cdg-bg);
+  z-index: 10000;
+  background: var(--cdg-surface);
   border: 1px solid var(--cdg-border);
   border-radius: 6px;
   box-shadow: 0 6px 18px rgba(0,0,0,.10);
@@ -2344,3 +2344,146 @@ textarea.cdg-input {
   min-width: 0;
 }
 
+
+/* ── Image optimization: bulk tools ── */
+.cdg-webp-tools {
+  display: grid;
+  gap: 12px;
+  padding: 4px 20px 18px;
+}
+
+.cdg-webp-block {
+  border: 1px solid var(--cdg-border);
+  border-radius: var(--cdg-radius-lg);
+  background: var(--cdg-surface);
+  padding: 14px 16px;
+}
+
+.cdg-webp-block-danger {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.cdg-webp-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cdg-fg);
+  margin: 0 0 2px;
+}
+
+.cdg-webp-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.cdg-webp-desc {
+  margin: 2px 0 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cdg-muted-fg);
+}
+
+.cdg-webp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cdg-webp-tools .cdg-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cdg-webp-tools [hidden] {
+  display: none !important;
+}
+
+.cdg-progress {
+  height: 8px;
+  margin-top: 12px;
+  border-radius: 99px;
+  background: var(--cdg-muted);
+  overflow: hidden;
+}
+
+.cdg-progress-bar {
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: var(--cdg-primary);
+  transition: width 0.2s ease;
+}
+
+.cdg-webp-msg {
+  margin-top: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cdg-muted-fg);
+}
+
+.cdg-webp-msg:empty {
+  display: none;
+}
+
+.cdg-webp-msg.is-ok {
+  color: #15803d;
+}
+
+.cdg-webp-msg.is-error {
+  color: #b91c1c;
+}
+
+/* Setting row whose control needs the full width (stacked under its label) */
+.cdg-setting-row.cdg-row-stack {
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cdg-row-stack .cdg-setting-control {
+  flex-shrink: 1;
+  width: 100%;
+  align-items: stretch;
+}
+
+.cdg-row-stack .cdg-radio-group {
+  flex-direction: row;
+  width: 100%;
+}
+
+.cdg-webp-tag.cdg-webp-tag-soft {
+  background: var(--cdg-muted);
+  color: var(--cdg-muted-fg);
+}
+
+/* Numbered steps inside Guide items */
+.cdg-guide-item-desc ol,
+.cdg-guide-item-desc ul {
+  margin: 6px 0 8px 20px;
+  padding: 0;
+}
+
+.cdg-guide-item-desc ol {
+  list-style: decimal;
+}
+
+.cdg-guide-item-desc li {
+  margin: 0 0 4px;
+}
+
+.cdg-btn-ghost {
+  background: transparent;
+  color: var(--cdg-muted-fg);
+  border: 1px dashed var(--cdg-border) !important;
+}
+
+.cdg-btn-ghost:hover {
+  background: var(--cdg-muted);
+  color: var(--cdg-fg);
+}

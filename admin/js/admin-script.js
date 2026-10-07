@@ -25,6 +25,10 @@
     bindToggle("enable_font_uploads",   "cdg-font-admin-row");
     bindToggle("enable_lottie_uploads", "cdg-lottie-admin-row");
 
+    // Image optimization
+    bindToggle("enable_webp", "cdg-webp-sub-settings");
+    bindToggle("webp_resize", "cdg-webp-resize-row");
+
     // Feature toggles → sub-settings groups
     bindToggle("enable_documentation", "cdg-doc-sub-settings");
     bindToggle("enable_cpt_widgets",   "cdg-cpt-sub-settings");
@@ -347,17 +351,73 @@
         });
       }
 
+      // Position the panel as fixed relative to the trigger, so it can
+      // escape ancestor `overflow: hidden` (the .cdg-card) and the vertical
+      // clamp of .cdg-scroll-region-tall. Flip upward if there is not
+      // enough room below the trigger.
+      function positionPanel() {
+        var rect      = trigger.getBoundingClientRect();
+        var viewportH = window.innerHeight || document.documentElement.clientHeight;
+        var spaceBelow = viewportH - rect.bottom - 8;
+        var spaceAbove = rect.top - 8;
+        var flipUp     = spaceBelow < 180 && spaceAbove > spaceBelow;
+        var maxH       = Math.max(120, Math.min(240, flipUp ? spaceAbove : spaceBelow));
+
+        panel.style.position  = "fixed";
+        panel.style.left      = rect.left + "px";
+        panel.style.width     = rect.width + "px";
+        panel.style.right     = "auto";
+        panel.style.maxHeight = maxH + "px";
+        if (flipUp) {
+          panel.style.top    = "auto";
+          panel.style.bottom = (viewportH - rect.top + 4) + "px";
+        } else {
+          panel.style.top    = (rect.bottom + 4) + "px";
+          panel.style.bottom = "auto";
+        }
+      }
+
+      function resetPanelPosition() {
+        panel.style.position  = "";
+        panel.style.top       = "";
+        panel.style.left      = "";
+        panel.style.right     = "";
+        panel.style.bottom    = "";
+        panel.style.width     = "";
+        panel.style.maxHeight = "";
+      }
+
       trigger.addEventListener("click", function (e) {
         e.stopPropagation();
         if (openRulesDropdown && openRulesDropdown !== dd) {
           openRulesDropdown.classList.remove("cdg-rules-open");
           var otherPanel = openRulesDropdown.querySelector(".cdg-rules-panel");
-          if (otherPanel) otherPanel.setAttribute("hidden", "");
+          if (otherPanel) {
+            otherPanel.setAttribute("hidden", "");
+            if (openRulesDropdown._cdgReset) openRulesDropdown._cdgReset();
+          }
         }
         var open = dd.classList.toggle("cdg-rules-open");
         panel.toggleAttribute("hidden", !open);
+        if (open) {
+          positionPanel();
+          window.addEventListener("scroll", positionPanel, true);
+          window.addEventListener("resize", positionPanel);
+        } else {
+          window.removeEventListener("scroll", positionPanel, true);
+          window.removeEventListener("resize", positionPanel);
+          resetPanelPosition();
+        }
         openRulesDropdown = open ? dd : null;
       });
+
+      // Expose a reset hook so another dropdown opening (or the
+      // outside-click handler) can undo this one's inline positioning.
+      dd._cdgReset = function () {
+        window.removeEventListener("scroll", positionPanel, true);
+        window.removeEventListener("resize", positionPanel);
+        resetPanelPosition();
+      };
 
       panel.addEventListener("change", function (e) {
         if (e.target && e.target.matches('input[type="checkbox"]')) {
@@ -423,6 +483,7 @@
         openRulesDropdown.classList.remove("cdg-rules-open");
         var p = openRulesDropdown.querySelector(".cdg-rules-panel");
         if (p) p.setAttribute("hidden", "");
+        if (openRulesDropdown._cdgReset) openRulesDropdown._cdgReset();
         openRulesDropdown = null;
       }
     });
@@ -813,6 +874,370 @@
 
       syncLinksEmpty();
     }
+
+    // ── Image optimization: bulk tools (convert / backup / replace / restore) ──
+    (function () {
+      var root = document.getElementById("cdg-webp-tools");
+      if (!root) return;
+
+      var ajaxUrl = root.getAttribute("data-ajax");
+      var nonce = root.getAttribute("data-nonce");
+      var busy = false;
+      var info = null; // last payload from cdg_webp_status
+
+      var $ = function (sel) { return root.querySelector(sel); };
+      var $$ = function (sel) { return Array.prototype.slice.call(root.querySelectorAll(sel)); };
+      var btn = function (act) { return $('[data-act="' + act + '"]'); };
+
+      function post(action) {
+        var fd = new FormData();
+        fd.append("action", "cdg_webp_" + action);
+        fd.append("nonce", nonce);
+        return fetch(ajaxUrl, { method: "POST", credentials: "same-origin", body: fd })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (!j || !j.success) {
+              throw new Error((j && j.data && j.data.message) || "The request failed.");
+            }
+            return j.data;
+          }, function () {
+            throw new Error("Unexpected response from the server. Check the PHP error log.");
+          });
+      }
+
+      function msg(key, text, kind, onlyIfEmpty) {
+        var el = $('[data-msg="' + key + '"]');
+        if (!el) return;
+        // Refreshing page state must never wipe a job result or error that
+        // the user hasn't read yet.
+        if (onlyIfEmpty && el.textContent) return;
+        el.textContent = text || "";
+        el.className = "cdg-webp-msg" + (kind ? " is-" + kind : "");
+      }
+
+      function bar(key, cur, total) {
+        var wrap = $('[data-progress="' + key + '"]');
+        if (!wrap) return;
+        wrap.hidden = cur === null;
+        if (cur === null) return;
+        var pct = total > 0 ? Math.min(100, Math.round((cur / total) * 100)) : 0;
+        wrap.firstElementChild.style.width = pct + "%";
+      }
+
+      function when(ts) { return ts ? new Date(ts * 1000).toLocaleString() : ""; }
+      function mb(bytes) {
+        if (bytes < 1048576) return Math.max(0, Math.round(bytes / 1024)) + " KB";
+        return (bytes / 1048576).toFixed(bytes > 10485760 ? 0 : 1) + " MB";
+      }
+      function plural(n, word, many) { return n + " " + (n === 1 ? word : (many || word + "s")); }
+
+      function setBusy(on, running) {
+        busy = on;
+        $$("[data-act]").forEach(function (b) {
+          if (b.getAttribute("data-act") === "cancel") return;
+          b.disabled = on;
+        });
+        btn("cancel").hidden = !(on && running === "bulk");
+        if (!on) syncButtons();
+      }
+
+      var MODE_LABEL = {
+        convert: "Convert existing images",
+        compress: "Compress existing images",
+        both: "Convert + compress existing images"
+      };
+
+      function syncButtons() {
+        if (!info) return;
+        var st = info.status || {};
+        var bulkRunning = st.phase === "converting" && !st.done;
+        var replRunning = st.phase === "replacing" && !st.done;
+
+        btn("bulk").textContent = bulkRunning ? "Resume" : (MODE_LABEL[info.mode] || MODE_LABEL.convert);
+        btn("replace").textContent = replRunning ? "Resume replace" : "Replace originals";
+
+        // Replace only makes sense when WebP files exist (convert / both).
+        $("#cdg-webp-replace-block").hidden = info.mode === "compress";
+        $("#cdg-webp-unsupported").hidden = !(info.mode !== "compress" && !info.converter);
+
+        btn("bulk").disabled = !info.enabled || busy;
+        btn("backup").disabled = !info.enabled || busy;
+        btn("replace").disabled = busy || !info.enabled || (!info.fresh_backup && !replRunning);
+        btn("restore").disabled = busy || !info.backups.length;
+
+        ["convert", "replace", "cleanup"].forEach(function (k) {
+          var pb = btn("preview-" + k);
+          if (pb) pb.disabled = busy || !info.enabled;
+        });
+
+        var cleaning = st.phase === "cleaning" && !st.done;
+        btn("cleanup").textContent = cleaning ? "Resume cleanup" : "Delete leftover originals";
+        btn("cleanup").disabled = busy || !info.enabled ||
+          (!cleaning && (!info.fresh_backup || !info.leftover_originals));
+      }
+
+      function render() {
+        var st = info.status || {};
+        var parts = [];
+        if (!info.enabled) {
+          parts.push("Turn on Optimize Images on Upload and save to use these tools.");
+        } else {
+          parts.push(plural(info.candidates, "JPG/PNG image") + " in the Media Library" +
+            (info.webp_attachments ? " (" + info.webp_attachments + " already WebP)" : "") + ".");
+          if (info.last_run && info.last_run.finished_at) {
+            parts.push("Last run " + when(info.last_run.finished_at) + ": " +
+              info.last_run.converted + " done, " + info.last_run.skipped + " skipped, " +
+              info.last_run.failed + " failed.");
+          }
+        }
+        $("#cdg-webp-summary").textContent = parts.join(" ");
+
+        var latest = info.backups[0];
+        if (latest) {
+          msg("backup", "Latest backup: " + when(latest.created_at) + " — " +
+            plural(latest.files, "file") + ", " + mb(latest.bytes) + ". " +
+            (info.fresh_backup ? "Ready to use." : "Out of date (over 24 hours old, or images were added since) — create a new one before replacing.") +
+            (latest.expires_at ? " Kept until " + when(latest.expires_at) + "." : ""),
+            info.fresh_backup ? "ok" : "");
+        } else {
+          msg("backup", "No backup yet.", "");
+        }
+
+        var lr = info.last_replace;
+        if (lr && !(st.phase === "replacing" && !st.done)) {
+          if (lr.restored_at) {
+            msg("replace", "Restored " + when(lr.restored_at) + ": " + plural(lr.files_restored || 0, "file") +
+              " and " + plural(lr.attachments_restored || 0, "image") + " put back.", "", true);
+          } else if (lr.finished_at) {
+            msg("replace", "Last replace " + when(lr.finished_at) + ": " + plural(lr.posts_modified || 0, "post") +
+              " updated, " + plural(lr.attachments_switched || 0, "image") + " switched, " +
+              plural(lr.files_deleted || 0, "file") + " deleted" +
+              (lr.attachments_skipped ? ", " + lr.attachments_skipped + " skipped" : "") + ".", "", true);
+          }
+        }
+        msg("cleanup", info.leftover_originals
+          ? plural(info.leftover_originals, "image") + " still " + (info.leftover_originals === 1 ? "has" : "have") + " a leftover original."
+          : "No leftover originals found.", "", true);
+        if (st.phase === "cleaning" && !st.done) {
+          msg("cleanup", "A cleanup was interrupted. Click Resume cleanup to finish it.", "error", true);
+        }
+        if (st.phase === "converting" && !st.done) {
+          msg("bulk", "A job was interrupted at " + (st.cursor || 0) + " of " + (st.total || 0) + ". Click Resume to continue.", "", true);
+        }
+        if (st.phase === "replacing" && !st.done) {
+          msg("replace", "A replace job was interrupted. Click Resume replace to finish it.", "error", true);
+        }
+        syncButtons();
+      }
+
+      function refresh() {
+        return post("status").then(function (d) { info = d; render(); }, function (e) {
+          $("#cdg-webp-summary").textContent = e.message;
+        });
+      }
+
+      function bulkLine(st) {
+        return "Done: " + (st.converted || 0) + ", skipped: " + (st.skipped || 0) + ", failed: " + (st.failed || 0);
+      }
+
+      function runBulk(resume) {
+        setBusy(true, "bulk");
+        msg("bulk", "", "");
+        bar("bulk", 0, 1);
+        var step = function (st) {
+          bar("bulk", st.cursor || 0, st.total || 0);
+          msg("bulk", "Working… " + (st.cursor || 0) + " of " + (st.total || 0) + ". " + bulkLine(st), "");
+          if (st.error) throw new Error(st.error);
+          return st;
+        };
+        return post(resume ? "tick_bulk" : "start_bulk").then(step).then(function loop(st) {
+          if (st.done) return st;
+          return post("tick_bulk").then(step).then(loop);
+        }).then(function (st) {
+          bar("bulk", st.total || 1, st.total || 1);
+          msg("bulk", (st.phase === "cancelled" ? "Cancelled. " : "Finished. ") + bulkLine(st) + ".",
+            st.failed ? "error" : "ok");
+        }).catch(function (e) {
+          msg("bulk", e.message, "error");
+        }).then(function () { setBusy(false); return refresh(); });
+      }
+
+      function replaceLine(st) {
+        if (st.step === "meta") {
+          return "Updating settings and custom fields (" + (st.meta_modified || 0) + " changed)";
+        }
+        if (st.step === "attachments") {
+          return "Switching images: " + (st.cursor || 0) + " of " + (st.total || 0) + " (" + (st.files_deleted || 0) + " files deleted)";
+        }
+        return "Updating content: " + (st.cursor || 0) + " of " + (st.total || 0) + " posts (" + (st.posts_modified || 0) + " changed)";
+      }
+
+      function runReplace(resume) {
+        setBusy(true, "replace");
+        msg("replace", "", "");
+        bar("replace", 0, 1);
+        var step = function (st) {
+          bar("replace", st.cursor || 0, st.total || 0);
+          msg("replace", "Working… " + replaceLine(st), "");
+          if (st.error) throw new Error(st.error);
+          return st;
+        };
+        return post(resume ? "tick_replace" : "start_replace").then(step).then(function loop(st) {
+          if (st.done) return st;
+          return post("tick_replace").then(step).then(loop);
+        }).then(function (st) {
+          bar("replace", 1, 1);
+          msg("replace", "Finished. " + plural(st.posts_modified || 0, "page or layout", "pages or layouts") + " updated, " +
+            plural(st.meta_modified || 0, "setting or custom field", "settings or custom fields") + " changed, " +
+            plural(st.attachments_switched || 0, "image") + " switched, " +
+            plural(st.files_deleted || 0, "file") + " deleted" +
+            (st.attachments_skipped ? ", " + st.attachments_skipped + " skipped (no WebP for every size)" : "") +
+            ". Purge your page cache (SpinupWP or any caching plugin) so visitors don\u2019t get old pages.", "ok");
+        }).catch(function (e) {
+          msg("replace", e.message, "error");
+        }).then(function () { setBusy(false); return refresh(); });
+      }
+
+      // ── Dry run: same scan as the real job, nothing is changed ──
+      function describePreview(kind, d) {
+        var a = d.acc || {};
+        var n = function (k) { return a[k] || 0; };
+        if (kind === "convert") {
+          var parts = [];
+          var converts = d.mode !== "compress";
+          var compresses = d.mode !== "convert";
+          var text = "Dry run: found " + plural(n("images"), "image") + " (" + plural(n("files"), "file") +
+            " including resized copies, " + mb(n("bytes")) + ").";
+          if (converts) parts.push(plural(n("to_convert"), "image") + " need" + (n("to_convert") === 1 ? "s" : "") + " a WebP copy (" + plural(n("webp_files"), "file") + " to create)");
+          if (compresses) parts.push(plural(n("to_compress"), "image") + " would be compressed");
+          parts.push(n("up_to_date") + " already up to date");
+          if (n("missing")) parts.push(plural(n("missing"), "image") + " skipped because the file is missing");
+          return text + " " + parts.join("; ") + ". Nothing was changed.";
+        }
+        if (kind === "replace") {
+          var t = "Dry run: " + plural(n("posts"), "page or layout", "pages or layouts") + " would be updated (" + n("posts_scanned") + " scanned), " +
+            plural(n("values"), "setting or custom field", "settings or custom fields") + " would change, and " +
+            plural(n("switch"), "image") + " would switch to WebP, deleting " + plural(n("files"), "file") + " and freeing " + mb(n("bytes")) + ".";
+          if (n("skipped")) t += " " + plural(n("skipped"), "image") + " would be skipped because some size has no WebP file yet. Run step 1 first.";
+          t += d.backup_ok ? " Your backup is current." : " You need a new backup (step 2) before you can run it.";
+          return t + " Nothing was changed.";
+        }
+        var c = "Dry run: " + plural(n("deletable"), "leftover original") + " would be deleted (" + mb(n("bytes")) + " freed)";
+        if (n("in_use")) c += ", " + n("in_use") + " would be kept because something still uses " + (n("in_use") === 1 ? "it" : "them");
+        return c + ". Nothing was changed.";
+      }
+
+      function runPreview(kind) {
+        var key = kind === "convert" ? "bulk" : kind;
+        setBusy(true, "preview");
+        msg(key, "Scanning\u2026", "");
+        bar(key, 0, 1);
+        var send = function (step, cursor, acc) {
+          var fd = new FormData();
+          fd.append("action", "cdg_webp_preview");
+          fd.append("nonce", nonce);
+          fd.append("kind", kind);
+          fd.append("step", step);
+          fd.append("cursor", cursor);
+          fd.append("acc", JSON.stringify(acc));
+          return fetch(ajaxUrl, { method: "POST", credentials: "same-origin", body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              if (!j || !j.success) throw new Error((j && j.data && j.data.message) || "The request failed.");
+              return j.data;
+            }, function () { throw new Error("Unexpected response from the server. Check the PHP error log."); });
+        };
+        var STEP_LABEL = { content: "Scanning content", options: "Scanning settings", postmeta: "Scanning custom fields", termmeta: "Scanning term fields", attachments: "Scanning images", convert: "Scanning images", cleanup: "Scanning images" };
+        return send("", 0, {}).then(function loop(d) {
+          if (d.total) bar(key, d.cursor, d.total);
+          if (d.done) return d;
+          msg(key, (STEP_LABEL[d.step] || "Scanning") + "\u2026 " + (d.total ? d.cursor + " of " + d.total : ""), "");
+          return send(d.step, d.cursor, d.acc).then(loop);
+        }).then(function (d) {
+          bar(key, 1, 1);
+          msg(key, describePreview(kind, d), "ok");
+        }).catch(function (e) {
+          bar(key, null);
+          msg(key, e.message, "error");
+        }).then(function () { setBusy(false); });
+      }
+
+      function cleanupLine(st) {
+        return (st.deleted || 0) + " deleted (" + mb(st.bytes_freed || 0) + " freed), " + (st.in_use || 0) + " kept because they are still in use";
+      }
+
+      function runCleanup(resume) {
+        setBusy(true, "cleanup");
+        msg("cleanup", "", "");
+        bar("cleanup", 0, 1);
+        var step = function (st) {
+          bar("cleanup", st.seen || 0, st.total || 0);
+          msg("cleanup", "Working\u2026 " + (st.seen || 0) + " of " + (st.total || 0) + ". " + cleanupLine(st), "");
+          if (st.error) throw new Error(st.error);
+          return st;
+        };
+        return post(resume ? "tick_cleanup" : "start_cleanup").then(step).then(function loop(st) {
+          if (st.done) return st;
+          return post("tick_cleanup").then(step).then(loop);
+        }).then(function (st) {
+          bar("cleanup", 1, 1);
+          msg("cleanup", "Finished. " + cleanupLine(st) + ". Purge your page cache if you use one.", "ok");
+        }).catch(function (e) {
+          msg("cleanup", e.message, "error");
+        }).then(function () { setBusy(false); return refresh(); });
+      }
+
+      root.addEventListener("click", function (ev) {
+        var target = ev.target.closest("[data-act]");
+        if (!target || target.disabled) return;
+        var act = target.getAttribute("data-act");
+        var st = (info && info.status) || {};
+
+        if (act.indexOf("preview-") === 0) {
+          runPreview(act.slice(8));
+        } else if (act === "bulk") {
+          runBulk(st.phase === "converting" && !st.done);
+        } else if (act === "cancel") {
+          post("cancel_bulk").catch(function () {});
+        } else if (act === "backup") {
+          setBusy(true);
+          msg("backup", "Creating backup… this can take a while on large libraries.", "");
+          post("create_backup").then(function (b) {
+            msg("backup", "Backup created: " + plural(b.files, "file") + ", " + mb(b.bytes) + ".", "ok");
+          }).catch(function (e) {
+            msg("backup", e.message, "error");
+          }).then(function () { setBusy(false); return refresh(); });
+        } else if (act === "replace") {
+          var resume = st.phase === "replacing" && !st.done;
+          if (resume || window.confirm(
+            "Replace originals with WebP?\n\n" +
+            "This rewrites image links across your content and PERMANENTLY DELETES the original JPG/PNG files. " +
+            "You can undo it with Restore only while the backup exists.\n\nContinue?")) {
+            runReplace(resume);
+          }
+        } else if (act === "cleanup") {
+          var cresume = st.phase === "cleaning" && !st.done;
+          if (cresume || window.confirm(
+            "Delete leftover originals?\n\nOnly originals that nothing on your site links to are removed, and your backup can bring them back.\n\nContinue?")) {
+            runCleanup(cresume);
+          }
+        } else if (act === "restore") {
+          if (window.confirm("Restore originals from the latest backup?\n\nOriginal files are put back and image links are switched back to them.")) {
+            setBusy(true);
+            msg("replace", "Restoring… do not close this page.", "");
+            post("start_restore").then(function (r) {
+              msg("replace", "Restored " + plural(r.files_restored, "file") + ", " +
+                plural(r.attachments_restored, "image") + " and " + plural(r.posts_modified, "post") +
+                ". Purge your page cache so visitors get the restored pages.", "ok");
+            }).catch(function (e) {
+              msg("replace", e.message, "error");
+            }).then(function () { setBusy(false); return refresh(); });
+          }
+        }
+      });
+
+      refresh();
+    })();
 
   });
 })();

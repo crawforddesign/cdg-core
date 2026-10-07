@@ -1,5 +1,59 @@
+# ─────────────────────────────────────────────────────────────
+# CDG Core — keep non-production files out of the repo.
+# Servers deploy by cloning this repo (see deploy-cdg-core.sh), so
+# anything tracked here ends up on live client sites.
+# ─────────────────────────────────────────────────────────────
+
+# OS junk
 .DS_Store
-.claude/settings.local.json
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+
+# Editors, IDEs and AI tooling (local only)
+.idea/
+.vscode/
+.nova/
+.claude/
+.cursor/
+.codex/
+.windsurf/
+.fleet/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Build and release artifacts
 *.zip
+*.tar
+*.tar.gz
+*.tgz
 /cdg-core-standalone/
+/dist/
+/build/
+
+# Scratch, trash and backup files
 /_trash/
+*.bak
+*.orig
+*.rej
+*.tmp
+*.log
+debug.log
+error_log
+
+# Dependencies (none are used here; the update checker is vendored in includes/)
+node_modules/
+/vendor/
+
+# Secrets and local config
+.env
+.env.*
+*.pem
+*.key
+
+# Design reference — useful locally, not part of the plugin
+/admin/style-guide.html

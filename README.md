@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.10.1
+## Version 1.11.0
 
 ### Requirements
 
@@ -25,6 +25,7 @@ WordPress optimizations, security hardening, and agency features for Crawford De
 - **Font upload support** (OTF, TTF, WOFF, WOFF2) with admin-only restriction
 - **Lottie/JSON upload support** with admin-only restriction
 - Performance optimizations (Gutenberg, queries, images)
+- **Image Optimization** - convert uploads to WebP, compress originals in place, and proportionally resize oversized uploads; bulk tools for existing libraries with backup, replace and restore (Settings > Performance)
 - Gravity Forms / Divi compatibility fixes and auto-page generation
 - Documentation system for editors
 - CPT Dashboard widgets
@@ -58,6 +59,9 @@ plugins/
     |   +-- class-plugin-visibility.php <- Plugin visibility control
     |   +-- class-security.php        <- Security hardening
     |   +-- class-svg-support.php     <- SVG upload support
+    |   +-- class-webp-support.php    <- Image optimization (WebP / compress / resize)
+    |   +-- class-webp-bulk.php       <- Bulk convert, replace originals, restore, cleanup
+    |   +-- class-webp-backup.php     <- Originals backup zips + expiry cron
     |   +-- plugin-update-checker/    <- Vendored update checker (GitHub Releases)
     +-- admin/
         +-- js/
@@ -98,6 +102,20 @@ CDG Core complements SpinupWP by handling:
 - **XML-RPC disabling**
 - **Dangerous file upload blocking**
 - **Code editor restrictions** (classic editor code view, plus the Theme/Plugin File Editor screens for every role)
+
+### Image Optimization: protect the backup folder (nginx)
+
+The Replace originals step saves a zip of every original JPG/PNG to `wp-content/uploads/cdg-webp-backups/`. The plugin writes an `.htaccess` there, but SpinupWP runs nginx, which ignores `.htaccess`, so the zips are downloadable by URL unless nginx blocks the folder. The file names are randomized, which makes them hard to guess but is not a substitute for blocking access.
+
+On each SpinupWP site, add a file such as `/sites/<domain>/nginx/deny-cdg-backups.conf` containing:
+
+```nginx
+location ^~ /wp-content/uploads/cdg-webp-backups/ {
+    deny all;
+}
+```
+
+Then run `sudo nginx -t && sudo service nginx reload`, and confirm with `curl -I https://<domain>/wp-content/uploads/cdg-webp-backups/` (expect `403`). The `^~` matters: it stops nginx's static-file rules from matching the zip first.
 
 ### Defaults Tab
 
@@ -246,6 +264,17 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.11.0
+
+- **Image Optimization (Settings > Performance).** New card with three modes: *Convert only* (writes a `.webp` copy next to each JPG/PNG and serves it on the front end), *Compress only* (re-encodes the original in place at the chosen level) and *Convert + Compress* (WebP first, then compress). A **Compression Level** (1-100, default 80) applies to both. Optional **Resize Large Uploads** shrinks new uploads proportionally to a max width (default 2400px), never enlarges, and turns off WordPress's own `-scaled` copy so only one right-sized original is kept. A PNG that is only slightly over the max width is left alone when resizing would make the file bigger.
+- **Existing Images tools.** Bulk convert/compress with progress and resume; a backup zip of every JPG/PNG (kept 7-90 days, default 30; the zip name is randomized); **Replace originals** (rewrites image links in every post type, options, post meta and term meta, switches each attachment to native WebP, deletes the originals; refuses to run without a backup that is under 24 hours old and newer than the latest upload); **Restore from backup**; and an optional **Free up space** step that deletes WordPress's leftover pre-scaled/pre-rotated originals only when nothing links to them. WP-CLI: `wp cdg webp convert|replace|restore|status`.
+- **Dry run.** Steps 1, 3 and 4 each have a **Preview (dry run)** button that runs the same scan as the real step and reports counts (images found, pages and settings that would change, files and space that would be freed) without writing anything. Replace's preview and its real run were checked against each other and match exactly.
+- **Replace now covers every post type.** Post types are read from the database as well as from registration, because some plugins (Divi's Theme Builder layouts) only register theirs on certain requests, which made a Replace started from wp-admin skip them while WP-CLI did not.
+- **Front end.** Image URLs are swapped to WebP only where the `.webp` file exists: `<img>`, `srcset`, `data-*` lazy-load attributes, CSS `url()` and inline styles, via content filters plus a page-wide output pass. Links (`href`), social/SEO meta tags and JSON-LD keep original URLs. Not applied in the admin, REST, Customizer preview or the Divi builder/preview. Works with or without month- and year-based upload folders.
+- **Divi.** Rewrites Divi 5 block JSON (including escaped slashes), Divi 4 shortcodes, Library and Theme Builder layouts, and options such as the Divi logo. Replace and Restore clear Divi's static CSS cache (`et-cache`) directly.
+- **SVG uploads** now save width/height in attachment metadata, which stops WordPress core logging "undefined array key" warnings on REST uploads.
+- Note: compressing in place drops embedded metadata (EXIF); colour profile handling depends on the server's image library.
 
 #### 1.10.1
 
