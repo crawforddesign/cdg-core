@@ -22,7 +22,6 @@ class CDG_Core_GF_Auto_Page
 {
     private const POST_TYPE     = 'cdg_form';
     private const OPTION_PREFIX = 'cdg_form_page_map_';
-    private const PRESET_ID     = 'a2d02oayef';
     private const AJAX_ACTION   = 'cdg_create_form_page';
 
     /**
@@ -224,7 +223,7 @@ class CDG_Core_GF_Auto_Page
     }
 
     /**
-     * Build the Divi 5 block markup for the GF Styler module.
+     * Build the Divi 5 block markup for the native Divi Gravity Forms module.
      *
      * @param int $form_id
      * @return string Divi 5 block markup for post_content.
@@ -235,14 +234,12 @@ class CDG_Core_GF_Auto_Page
 
         $module_attrs = wp_json_encode(
             [
-                'formId'         => [
+                'gravityForm'    => [
                     'innerContent' => [
-                        'widescreen' => ['value' => ['id' => $id]],
-                        'desktop'    => ['value' => ['id' => $id]],
+                        'desktop' => ['value' => ['formId' => $id]],
                     ],
                 ],
                 'builderVersion' => '5.1.0',
-                'modulePreset'   => [self::PRESET_ID],
             ],
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         );
@@ -261,7 +258,7 @@ class CDG_Core_GF_Auto_Page
             "<!-- wp:divi/placeholder --><!-- wp:divi/section {$section_attrs} -->",
             "<!-- wp:divi/row {$row_attrs} -->",
             "<!-- wp:divi/column {$col_attrs} -->",
-            "<!-- wp:dnxte/gravity-forms {$module_attrs} /-->",
+            "<!-- wp:divi/gravity-forms {$module_attrs} /-->",
             '<!-- /wp:divi/column -->',
             '<!-- /wp:divi/row -->',
             '<!-- /wp:divi/section --><!-- /wp:divi/placeholder -->',

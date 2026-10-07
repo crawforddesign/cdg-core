@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.11.0
+## Version 1.11.1
 
 ### Requirements
 
@@ -197,7 +197,7 @@ Prevents Divi from deferring Gravity Forms scripts on pages with forms, fixing "
 
 #### Auto-Page Generation
 
-When creating a new Gravity Forms form, an optional checkbox in the form creation flyout will automatically generate a draft `cdg_form` custom post type page pre-loaded with a Divi 5 GF Styler module pointed at the new form. A "View Form Page" button is injected next to the Save Form button in the form editor.
+When creating a new Gravity Forms form, an optional checkbox in the form creation flyout will automatically generate a draft `cdg_form` custom post type page pre-loaded with a native Divi 5 Gravity Forms module pointed at the new form. A "View Form Page" button is injected next to the Save Form button in the form editor.
 
 ### Plugin Visibility (Sidebar Tab)
 
@@ -264,6 +264,10 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.11.1
+
+- Gravity Forms auto-generated form pages now use Divi 5's native Gravity Forms module (`divi/gravity-forms`) instead of the third-party Divi GF Styler (`dnxte/gravity-forms`), so they no longer depend on that plugin. The old styler's module preset is no longer applied. Pages already generated with the old block are unchanged.
 
 #### 1.11.0
 
