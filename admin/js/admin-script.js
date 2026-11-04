@@ -742,11 +742,37 @@
 
     var iconPanel = null;
 
+    // Below the button, or above it if there's no room, kept inside the viewport.
+    function positionIconPanel() {
+      if (!iconPanel || !activePickerBtn) return;
+
+      var gap    = 4;
+      var margin = 8;
+      var rect   = activePickerBtn.getBoundingClientRect();
+      var width  = iconPanel.offsetWidth;
+      var height = iconPanel.offsetHeight;
+      var maxX   = document.documentElement.clientWidth - margin;
+      var maxY   = window.innerHeight - margin;
+
+      var left = rect.left + width > maxX ? rect.right - width : rect.left;
+      var top  = rect.bottom + gap;
+      if (top + height > maxY && rect.top - gap - height >= margin) {
+        top = rect.top - gap - height;
+      }
+
+      iconPanel.style.left = Math.max(margin, Math.min(left, maxX - width)) + "px";
+      iconPanel.style.top  = Math.max(margin, Math.min(top, maxY - height)) + "px";
+    }
+
+    window.addEventListener("scroll", positionIconPanel, true);
+    window.addEventListener("resize", positionIconPanel);
+
     function openIconPanel(triggerBtn) {
       closeIconPanel();
       activePickerBtn = triggerBtn;
       iconPanel = buildIconPanel();
-      document.body.appendChild(iconPanel);
+      // Inside .cdg-v2, which holds the design tokens the panel is styled with.
+      (triggerBtn.closest(".cdg-v2") || document.body).appendChild(iconPanel);
 
       // Highlight current icon.
       var currentIcon = triggerBtn.querySelector(".dashicons");
@@ -757,11 +783,7 @@
         });
       }
 
-      // Position below the button.
-      var rect = triggerBtn.getBoundingClientRect();
-      iconPanel.style.position = "fixed";
-      iconPanel.style.top      = (rect.bottom + window.scrollY + 4) + "px";
-      iconPanel.style.left     = rect.left + "px";
+      positionIconPanel();
 
       setTimeout(function () {
         iconPanel.querySelector(".cdg-icon-search").focus();

@@ -221,6 +221,7 @@ class CDG_Core_Admin
       case "cleanup":
         $s["disable_comments"] = !empty($input["disable_comments"]);
         $s["hide_divi_projects"] = !empty($input["hide_divi_projects"]);
+        $s["hide_default_posts"] = !empty($input["hide_default_posts"]);
 
         $s["enable_post_rename"] = !empty($input["enable_post_rename"]);
         $s["post_rename_singular"] = sanitize_text_field(
@@ -1315,6 +1316,18 @@ class CDG_Core_Admin
           "Hide Divi Projects",
           "Unregisters the Divi Projects post type and its Project Categories / Tags taxonomies.",
           $this->sw("hide_divi_projects", $s["hide_divi_projects"])
+        );
+      }
+    );
+
+    $this->card(
+      "WordPress Posts",
+      "Control the built-in Post type for sites that don&#8217;t use a blog.",
+      function () use ($s) {
+        $this->row(
+          "Hide Posts",
+          "Removes Posts, Categories, and Tags from wp-admin and returns a 404 for post pages and their archives. Existing posts are kept and come back if you turn this off. Overrides Rename &#8220;Posts&#8221; below.",
+          $this->sw("hide_default_posts", $s["hide_default_posts"])
         );
       }
     );
@@ -3009,6 +3022,10 @@ class CDG_Core_Admin
           "Create Form Page for an existing or imported form",
           'Open the form in the Gravity Forms editor. If it has no page yet, a "Create Form Page" button appears next to Save Form. Click it, confirm or change the slug, and the page is created under <code>/forms/</code>; the button then turns into "View Form Page". Use this for imported forms and forms made before the plugin was installed.'
         );
+        $this->guide_item(
+          "Scheduled forms",
+          'If a form has "Schedule form" turned on in its Form Settings with an end date, its form page is switched to Draft automatically at that date and time. Moving the end date later or turning scheduling off publishes the page again. Pages you set to Draft yourself are not touched.'
+        );
         echo "</div>";
         echo '<div class="cdg-guide-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Auto-generated form pages use the <code>cdg_form</code> custom post type. They are deleted (moved to Trash) automatically when the associated Gravity Forms form is deleted.</span></div>';
       }
@@ -3028,6 +3045,10 @@ class CDG_Core_Admin
         $this->guide_item(
           "Hide Divi Projects",
           "Unregisters Divi's built-in Projects post type along with its Project Categories and Project Tags taxonomies. Enable on any site that uses Divi but does not use the Projects feature."
+        );
+        $this->guide_item(
+          "Hide Posts",
+          "Switches off the built-in Post type: removes Posts, Categories, and Tags from wp-admin, the admin bar, menus, search, the REST API, and sitemaps, and returns a 404 for single posts and for blog, category, tag, date, and author archives. WordPress does not allow built-in post types to be unregistered, so existing posts stay in the database and return when this is turned off. A homepage set to show latest posts keeps working, so choose a static homepage under Settings &gt; Reading."
         );
         echo "</div>";
 

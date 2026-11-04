@@ -12,6 +12,11 @@
  * 2. Form lifecycle: gform_after_delete_form trashes the associated post and
  *    cleans up the options key.
  *
+ * 3. Form schedule: when a form has "Schedule form" enabled with an end date,
+ *    a single cron event switches the form page to Draft at that time. If the
+ *    end date is later moved forward or scheduling is turned off, a page that
+ *    was drafted by the schedule is published again.
+ *
  * @package CDG_Core
  * @since 1.5.0
  */
@@ -23,6 +28,9 @@ class CDG_Core_GF_Auto_Page
     private const POST_TYPE     = 'cdg_form';
     private const OPTION_PREFIX = 'cdg_form_page_map_';
     private const AJAX_ACTION   = 'cdg_create_form_page';
+    private const DRAFTED_META  = '_cdg_drafted_by_schedule';
+
+    public const CRON_HOOK = 'cdg_form_page_schedule_end';
 
     /**
      * @var CDG_Core
@@ -54,6 +62,8 @@ class CDG_Core_GF_Auto_Page
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_scripts']);
         add_action('wp_ajax_' . self::AJAX_ACTION, [$this, 'handle_create_page_ajax']);
         add_action('gform_after_delete_form', [$this, 'handle_form_deleted']);
+        add_action('gform_post_update_form_meta', [$this, 'handle_form_meta_updated'], 10, 3);
+        add_action(self::CRON_HOOK, [$this, 'handle_schedule_end']);
     }
 
     /**
@@ -174,6 +184,10 @@ class CDG_Core_GF_Auto_Page
 
         update_option(self::OPTION_PREFIX . $form_id, $post_id, false);
 
+        if (!empty($form)) {
+            $this->sync_schedule($form_id, $form);
+        }
+
         wp_send_json_success([
             'post_id'  => $post_id,
             'edit_url' => get_edit_post_link($post_id, 'raw'),
@@ -197,6 +211,138 @@ class CDG_Core_GF_Auto_Page
         }
 
         delete_option($option_key);
+        wp_clear_scheduled_hook(self::CRON_HOOK, [$form_id]);
+    }
+
+    /**
+     * Re-sync the page's schedule whenever the form's display meta is saved
+     * (form editor and Form Settings both go through this).
+     *
+     * @param mixed  $form_meta
+     * @param int    $form_id
+     * @param string $meta_name
+     * @return void
+     */
+    public function handle_form_meta_updated($form_meta, $form_id, $meta_name): void
+    {
+        if ($meta_name !== 'display_meta') {
+            return;
+        }
+
+        $form_id = absint($form_id);
+
+        if (!$form_id || !get_option(self::OPTION_PREFIX . $form_id)) {
+            return;
+        }
+
+        if (!is_array($form_meta)) {
+            $form_meta = class_exists('GFAPI') ? GFAPI::get_form($form_id) : [];
+        }
+
+        if (is_array($form_meta)) {
+            $this->sync_schedule($form_id, $form_meta);
+        }
+    }
+
+    /**
+     * Cron callback: draft the form page once the form's schedule has ended.
+     *
+     * The form is re-read so a stale event (schedule changed after it was
+     * queued) does nothing.
+     *
+     * @param int $form_id
+     * @return void
+     */
+    public function handle_schedule_end($form_id): void
+    {
+        $form_id = absint($form_id);
+        $post_id = absint(get_option(self::OPTION_PREFIX . $form_id, 0));
+        $form    = class_exists('GFAPI') ? GFAPI::get_form($form_id) : false;
+
+        if (!$post_id || !is_array($form)) {
+            return;
+        }
+
+        $end = $this->get_schedule_end_timestamp($form);
+
+        if ($end === null || $end > time()) {
+            return;
+        }
+
+        if (get_post_status($post_id) !== 'publish') {
+            return;
+        }
+
+        $result = wp_update_post(['ID' => $post_id, 'post_status' => 'draft'], true);
+
+        if (!is_wp_error($result)) {
+            update_post_meta($post_id, self::DRAFTED_META, 1);
+        }
+    }
+
+    /**
+     * Queue (or clear) the schedule-end event for a form, and republish the
+     * page if the schedule no longer applies.
+     *
+     * @param int   $form_id
+     * @param array $form
+     * @return void
+     */
+    private function sync_schedule(int $form_id, array $form): void
+    {
+        wp_clear_scheduled_hook(self::CRON_HOOK, [$form_id]);
+
+        $end = $this->get_schedule_end_timestamp($form);
+
+        if ($end !== null) {
+            // A past end date still queues: cron runs it on the next request.
+            wp_schedule_single_event(max($end, time()), self::CRON_HOOK, [$form_id]);
+
+            if ($end <= time()) {
+                return;
+            }
+        }
+
+        $post_id = absint(get_option(self::OPTION_PREFIX . $form_id, 0));
+
+        if (
+            $post_id
+            && get_post_meta($post_id, self::DRAFTED_META, true)
+            && get_post_status($post_id) === 'draft'
+        ) {
+            wp_update_post(['ID' => $post_id, 'post_status' => 'publish']);
+            delete_post_meta($post_id, self::DRAFTED_META);
+        }
+    }
+
+    /**
+     * Get the form's schedule end as a Unix timestamp.
+     *
+     * Gravity Forms stores the end as a m/d/Y date plus 12-hour time parts in
+     * the site's timezone.
+     *
+     * @param array $form
+     * @return int|null Null when scheduling is off or there is no end date.
+     */
+    private function get_schedule_end_timestamp(array $form): ?int
+    {
+        if (empty($form['scheduleForm']) || empty($form['scheduleEnd'])) {
+            return null;
+        }
+
+        $local = sprintf(
+            '%s %02d:%02d %s',
+            $form['scheduleEnd'],
+            (int) ($form['scheduleEndHour'] ?? 0),
+            (int) ($form['scheduleEndMinute'] ?? 0),
+            $form['scheduleEndAmpm'] ?? ''
+        );
+
+        try {
+            return (new DateTimeImmutable(trim($local), wp_timezone()))->getTimestamp();
+        } catch (Exception $e) {
+            return null;
+        }
     }
 
 /**

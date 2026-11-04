@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.11.3
+## Version 1.11.5
 
 ### Requirements
 
@@ -140,6 +140,17 @@ Fully disables Divi's built-in Projects post type:
 - Removes Project Tags taxonomy
 - Redirects any direct access to project admin pages
 
+#### Hide Posts
+
+Switches off WordPress's built-in Post type for sites without a blog. WordPress doesn't allow built-in post types or taxonomies to be unregistered, so existing posts stay in the database and return when the setting is turned off.
+
+- Removes Posts, Categories, and Tags from wp-admin, the admin bar, and Appearance > Menus
+- Removes Quick Draft and post listings from the dashboard
+- Redirects any direct access to Posts admin pages
+- Removes posts from site search, the REST API, the posts feed, and sitemaps
+- Returns a 404 for single posts and for blog, category, tag, date, and author archives (Categories or Tags shared with a custom post type keep their archives)
+- A homepage set to "Your latest posts" keeps working, so choose a static homepage under Settings > Reading
+
 #### Rename "Posts"
 
 Rebrands the built-in Post type across wp-admin — labels, sidebar menu entry, and menu icon. Purely cosmetic: the post type's slug, rewrite rules, and permalinks are untouched.
@@ -264,6 +275,15 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.11.5
+
+- Added **Hide Posts** (Cleanup tab): switches off the built-in Post type in wp-admin and on the front end. Existing posts are kept.
+- Fixed the icon picker dropdown: it opened in the wrong place on a scrolled page, could run off the edge of the screen, and had no background.
+
+#### 1.11.4
+
+- Gravity Forms: form pages now follow the form's schedule. When **Schedule form** is on in the form's settings and an end date is set, the form page switches to Draft at that date and time (site timezone). If the end date is later pushed out or scheduling is turned off, a page the schedule drafted is published again; pages you set to Draft yourself are left alone. Runs on WP-Cron, so on low-traffic sites it can fire a few minutes late unless a real server cron is set up.
 
 #### 1.11.3
 

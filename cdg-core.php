@@ -4,7 +4,7 @@
  * Plugin URI: https://crawforddesigngroup.com
  * Update URI: https://github.com/crawforddesign/cdg-core
  * Description: WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
- * Version: 1.11.3
+ * Version: 1.11.5
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: Crawford Design Group
@@ -37,7 +37,7 @@ if (!class_exists("CDG_Core")) {
   /**
    * Plugin Constants
    */
-  define("CDG_CORE_VERSION", "1.11.3");
+  define("CDG_CORE_VERSION", "1.11.5");
   define("CDG_CORE_DIR", plugin_dir_path(__FILE__));
   define("CDG_CORE_URL", plugin_dir_url(__FILE__));
   define("CDG_CORE_BASENAME", plugin_basename(__FILE__));
@@ -152,6 +152,9 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
 
       // Defaults - Divi Projects
       "hide_divi_projects" => false,
+
+      // Defaults - Built-in Posts
+      "hide_default_posts" => false,
 
       // Rename "Posts"
       "enable_post_rename" => false,
@@ -508,7 +511,7 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
       new CDG_Core_Security($this);
       new CDG_Core_Performance($this);
 
-      // Defaults (Comments, Projects)
+      // Defaults (Comments, Projects, Posts)
       new CDG_Core_Defaults($this);
 
       // Rename "Posts" — labels, sidebar menu, and icon. No-op unless enabled.
