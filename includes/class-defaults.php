@@ -290,6 +290,27 @@ class CDG_Core_Defaults
 
         // Redirect any direct access to projects admin pages
         add_action('admin_init', [$this, 'redirect_projects_admin_pages']);
+
+        // Existing Project posts stay in the database. Divi's Portfolio
+        // module still queries them, then calls get_the_terms() on the
+        // unregistered project_category taxonomy, gets a WP_Error back and
+        // fatals in esc_url(). Return no results for Project queries.
+        add_action('pre_get_posts', [$this, 'empty_project_queries']);
+    }
+
+    /**
+     * Make any query for the hidden Project post type return nothing.
+     *
+     * @param \WP_Query $query Query object
+     * @return void
+     */
+    public function empty_project_queries($query): void
+    {
+        $post_type = (array) $query->get('post_type');
+
+        if ($post_type !== [] && array_diff($post_type, ['project']) === []) {
+            $query->set('post__in', [0]);
+        }
     }
 
     /**
