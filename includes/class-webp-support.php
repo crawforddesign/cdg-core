@@ -60,6 +60,14 @@ class CDG_Core_WebP_Support
     private array $url_patterns = [];
 
     /**
+     * Originals resized (and so already re-encoded at our quality) during
+     * this request, keyed by normalized absolute path.
+     *
+     * @var array<string, bool>
+     */
+    private array $resized_paths = [];
+
+    /**
      * Constructor
      *
      * @param CDG_Core $plugin Plugin instance
@@ -104,8 +112,11 @@ class CDG_Core_WebP_Support
 
         // Generate size variants at our quality instead of re-compressing
         // them afterwards (a second lossy pass for almost no size gain).
+        // Progressive JPEGs are 3-15% smaller than baseline at the same
+        // quality and render sooner on slow connections.
         if ($this->mode_compresses()) {
             add_filter("wp_editor_set_quality", [$this, "filter_editor_quality"], 10, 2);
+            add_filter("image_save_progressive", [$this, "filter_progressive"], 10, 2);
         }
 
         // Once every size variant exists: WebP first, then compress.
@@ -202,6 +213,18 @@ class CDG_Core_WebP_Support
         return $mime_type === "image/jpeg" ? $this->get_quality() : $quality;
     }
 
+    /**
+     * Save JPEGs as progressive.
+     *
+     * @param bool $interlace Whether WordPress would interlace
+     * @param string $mime_type Mime type being saved
+     * @return bool
+     */
+    public function filter_progressive($interlace, $mime_type)
+    {
+        return $mime_type === "image/jpeg" ? true : (bool) $interlace;
+    }
+
     // ─────────────────────────────────────────────────────────────
     // Upload pipeline
     // ─────────────────────────────────────────────────────────────
@@ -224,8 +247,12 @@ class CDG_Core_WebP_Support
             return $file;
         }
 
-        if ($this->resize_enabled() && $this->should_convert($file["file"])) {
-            $this->resize_file($file["file"], $this->get_max_width());
+        if (
+            $this->resize_enabled() &&
+            $this->should_convert($file["file"]) &&
+            $this->resize_file($file["file"], $this->get_max_width())
+        ) {
+            $this->resized_paths[wp_normalize_path($file["file"])] = true;
         }
 
         return $file;
@@ -261,7 +288,12 @@ class CDG_Core_WebP_Support
             $this->mode_compresses() &&
             !($attachment_id && get_post_meta($attachment_id, self::COMPRESSED_META, true));
 
-        $full_ok = $this->process_file($base_dir . $metadata["file"], $compress);
+        // An original resized at upload was just re-encoded at our quality;
+        // a second lossy pass would only cost quality, so count it as done.
+        $full_path = $base_dir . $metadata["file"];
+        $just_resized = isset($this->resized_paths[wp_normalize_path($full_path)]);
+
+        $full_ok = $this->process_file($full_path, $compress && !$just_resized);
 
         foreach ((array) ($metadata["sizes"] ?? []) as $size) {
             if (!empty($size["file"])) {
@@ -904,7 +936,20 @@ class CDG_Core_WebP_Support
         }
         $editor->set_quality($quality);
 
-        $saved = @$editor->save($dst, "image/webp");
+        // Changing format makes WordPress reset the editor's quality to the
+        // `wp_editor_set_quality` default (see WP_Image_Editor::
+        // get_output_format()), discarding set_quality() above. Pin the
+        // WebP quality to ours for the duration of this save.
+        $pin = static function ($q, $mime) use ($quality) {
+            return $mime === "image/webp" ? $quality : $q;
+        };
+        add_filter("wp_editor_set_quality", $pin, PHP_INT_MAX, 2);
+        try {
+            $saved = @$editor->save($dst, "image/webp");
+        } finally {
+            remove_filter("wp_editor_set_quality", $pin, PHP_INT_MAX);
+        }
+
         return !is_wp_error($saved) && !empty($saved["path"]) &&
             $this->webp_exists($saved["path"]) &&
             ($saved["path"] === $dst || @rename($saved["path"], $dst));

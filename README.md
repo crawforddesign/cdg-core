@@ -2,7 +2,7 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.11.5
+## Version 1.11.6
 
 ### Requirements
 
@@ -275,6 +275,12 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.11.6
+
+- Image Optimization: the **Quality** setting now applies to WebP files. WordPress resets the encoder to its own default (86 for WebP) whenever an image changes format, so every JPG converted to WebP was coming out at 86 whatever the setting said. At the default of 80, WebP files are now about 20% smaller.
+- Image Optimization: compressed JPEGs (originals and every generated size) are now saved as progressive JPEGs, which are 3–14% smaller at the same quality and start drawing sooner on slow connections.
+- Image Optimization: uploads that get resized to the max width are no longer compressed a second time afterwards. They were already saved at your quality during the resize, so the extra pass only cost image quality.
 
 #### 1.11.5
 
