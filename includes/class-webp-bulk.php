@@ -2067,7 +2067,7 @@ class CDG_Core_WebP_Bulk
         if (!is_user_logged_in()) {
             return false;
         }
-        if (!current_user_can("manage_options")) {
+        if (!current_user_can(CDG_Core_Admin::capability())) {
             return false;
         }
         return true;

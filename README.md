@@ -2,13 +2,13 @@
 
 WordPress optimizations, security hardening, and agency features for Crawford Design Group client sites.
 
-## Version 1.11.5
+## Version 1.11.6
 
 ### Requirements
 
 - WordPress 6.0+
 - PHP 8.0+
-- Divi 4.0+
+- Divi 5
 - SpinupWP hosting (recommended)
 
 ### Installation
@@ -53,7 +53,6 @@ plugins/
     |   +-- class-documentation.php   <- Documentation CPT
     |   +-- class-font-support.php    <- Font upload support
     |   +-- class-gf-auto-page.php    <- GF auto page generation
-    |   +-- class-gravity-forms.php   <- GF/Divi compatibility
     |   +-- class-lottie-support.php  <- Lottie upload support
     |   +-- class-performance.php     <- Performance optimizations
     |   +-- class-plugin-visibility.php <- Plugin visibility control
@@ -275,6 +274,15 @@ Installed sites will see the update within ~12 hours (WordPress's normal update-
 Auto-updates are not enabled by default. If you want a given site to apply releases unattended, an admin can turn on "Enable auto-updates" for CDG Core from that site's Plugins page — this uses WordPress's own fatal-error-protected update path.
 
 ### Changelog
+
+#### 1.11.6
+
+- **Security:** CDG Core Settings now require the `activate_plugins` capability instead of `manage_options`. The Manager role keeps `manage_options`, so a Manager could open the settings page and either set the Agency Email to their own address or add a PHP Code Snippet, and become a full Administrator. Managers no longer see the page; Administrators and the Agency account are unaffected. The Image Optimization AJAX endpoints use the same check. Sites that need a different capability can change it with the `cdg_core_settings_capability` filter.
+- Fixed **Disable Comments** not disabling comment feeds. It hooked `do_feed_rss2_comments` / `do_feed_atom_comments`, which WordPress never fires, so `/comments/feed/` kept working. Comment feeds now redirect to the home page, and the "Comments Feed" `<link>` that the child theme's `automatic-feed-links` prints is removed. Post feeds are untouched.
+- Fixed **Lazy Loading** adding `loading="lazy"` to the image WordPress marks `fetchpriority="high"` (the hero or featured image), which delayed the largest paint. That image is now left alone.
+- Fixed **Remove "Howdy,"** doing nothing. WordPress adds the account menu at priority 9991, after the old priority 999 hook had already run.
+- **Disable XML-RPC** now also removes the RSD `<link>` that advertised `xmlrpc.php` in the page head.
+- Removed a PHP 8.1+ deprecation notice logged on every admin page (the hidden Documentation Category page was registered with a `null` parent) and a second one on that page itself (missing screen title).
 
 #### 1.11.5
 

@@ -104,7 +104,7 @@ class CDG_Core_WebP_Backup
     {
         check_ajax_referer("cdg_webp", "nonce");
 
-        if (!current_user_can("manage_options")) {
+        if (!current_user_can(CDG_Core_Admin::capability())) {
             wp_send_json_error(["message" => "forbidden"], 403);
         }
 
@@ -123,7 +123,7 @@ class CDG_Core_WebP_Backup
     {
         check_ajax_referer("cdg_webp", "nonce");
 
-        if (!current_user_can("manage_options")) {
+        if (!current_user_can(CDG_Core_Admin::capability())) {
             wp_send_json_error(["message" => "forbidden"], 403);
         }
 

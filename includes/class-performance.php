@@ -226,6 +226,13 @@ class CDG_Core_Performance
             return $attr;
         }
 
+        // WordPress leaves loading off and sets fetchpriority="high" on the
+        // image it judges to be the LCP (usually the hero or featured
+        // image). Lazy-loading that image delays the largest paint.
+        if (($attr['fetchpriority'] ?? '') === 'high') {
+            return $attr;
+        }
+
         // Add native lazy loading
         $attr['loading'] = 'lazy';
 

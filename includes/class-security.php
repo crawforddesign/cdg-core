@@ -43,6 +43,9 @@ class CDG_Core_Security
         if ($this->plugin->get_setting('disable_xmlrpc')) {
             add_filter('xmlrpc_enabled', '__return_false');
             add_filter('xmlrpc_methods', '__return_empty_array');
+
+            // Stop advertising xmlrpc.php via the RSD <link> in <head>.
+            remove_action('wp_head', 'rsd_link');
         }
         
         // Block dangerous uploads

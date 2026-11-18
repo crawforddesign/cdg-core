@@ -344,15 +344,26 @@ class CDG_Core_Documentation
             [$this, 'render_viewer']
         );
 
-        // Hidden category archive page
-        add_submenu_page(
-            null,
+        // Hidden category archive page. An empty-string parent hides it from
+        // the menu; null does the same but triggers PHP 8.1+ deprecation
+        // notices inside core on every admin request.
+        $category_hook = add_submenu_page(
+            '',
             __('Documentation Category', 'cdg-core'),
             __('Category', 'cdg-core'),
             'edit_posts',
             'cdg-doc-category',
             [$this, 'render_category_archive']
         );
+
+        // Hidden pages have no menu entry for core to read the screen title
+        // from, which leaves $title null (and a PHP 8.1+ deprecation notice
+        // in admin-header.php). Set it before the header renders.
+        if ($category_hook) {
+            add_action('load-' . $category_hook, static function (): void {
+                $GLOBALS['title'] = __('Documentation Category', 'cdg-core');
+            });
+        }
     }
 
     /**

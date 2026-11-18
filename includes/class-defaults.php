@@ -95,9 +95,15 @@ class CDG_Core_Defaults
         // Remove comment-related items from admin bar on frontend
         add_action('admin_bar_menu', [$this, 'remove_comments_admin_bar_menu'], 999);
 
-        // Disable comment feeds
-        add_action('do_feed_rss2_comments', [$this, 'disable_comment_feeds'], 1);
-        add_action('do_feed_atom_comments', [$this, 'disable_comment_feeds'], 1);
+        // Disable comment feeds. Core fires do_feed_rss2 / do_feed_atom for
+        // both post and comment feeds and passes $is_comment_feed as the
+        // first argument (there is no do_feed_*_comments hook).
+        add_action('do_feed_rss2', [$this, 'disable_comment_feeds'], 1);
+        add_action('do_feed_atom', [$this, 'disable_comment_feeds'], 1);
+
+        // Stop advertising the comments feed in <head>. The CDG child theme
+        // (and Divi) declare automatic-feed-links, which prints it.
+        add_filter('feed_links_show_comments_feed', '__return_false');
 
         // Remove X-Pingback header
         add_filter('wp_headers', [$this, 'remove_pingback_header']);
@@ -224,12 +230,17 @@ class CDG_Core_Defaults
     }
 
     /**
-     * Disable comment feeds
+     * Redirect comment feeds to the home page. Post feeds pass through.
      *
+     * @param bool $is_comment_feed Whether the requested feed is a comment feed
      * @return void
      */
-    public function disable_comment_feeds(): void
+    public function disable_comment_feeds($is_comment_feed = false): void
     {
+        if (!$is_comment_feed) {
+            return;
+        }
+
         wp_safe_redirect(home_url(), 301);
         exit;
     }

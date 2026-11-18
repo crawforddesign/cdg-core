@@ -91,9 +91,10 @@ class CDG_Core_Cleanup
         add_action('init', [$this, 'control_heartbeat_frontend']);
         add_action('admin_init', [$this, 'control_heartbeat_admin']);
 
-        // Remove "Howdy," from the admin bar account menu. Runs after
-        // wp_admin_bar_my_account_item() (priority 0) adds the node.
-        add_filter('admin_bar_menu', [$this, 'remove_howdy'], 999);
+        // Remove "Howdy," from the admin bar account menu. Must run after
+        // wp_admin_bar_my_account_item() adds the node, which core hooks at
+        // priority 9991 (WordPress 6.x+).
+        add_action('admin_bar_menu', [$this, 'remove_howdy'], 10000);
 
         // Expired transient cleanup — self-corrects the cron schedule each
         // load so toggling the setting off also tears the event back down.
@@ -118,6 +119,12 @@ class CDG_Core_Cleanup
 
         if ($account && isset($account->title)) {
             $account->title = preg_replace('/^Howdy,\s*/i', '', $account->title);
+
+            // menu_title becomes the submenu's aria-label.
+            if (isset($account->meta['menu_title'])) {
+                $account->meta['menu_title'] = preg_replace('/^Howdy,\s*/i', '', $account->meta['menu_title']);
+            }
+
             $wp_admin_bar->add_node($account);
         }
     }

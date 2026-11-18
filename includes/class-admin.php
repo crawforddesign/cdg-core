@@ -14,6 +14,22 @@ class CDG_Core_Admin
 {
   private CDG_Core $plugin;
 
+  /**
+   * Capability required to open or save CDG Core Settings.
+   *
+   * This is deliberately stricter than manage_options. The Manager role
+   * keeps manage_options but has activate_plugins removed, and the
+   * settings page includes the Roles tab (Agency Email) and PHP Code
+   * Snippets. Either one lets whoever can save it become a full
+   * Administrator, so a Manager must not reach this page.
+   *
+   * @return string
+   */
+  public static function capability(): string
+  {
+    return (string) apply_filters("cdg_core_settings_capability", "activate_plugins");
+  }
+
   public function __construct(CDG_Core $plugin)
   {
     $this->plugin = $plugin;
@@ -32,7 +48,7 @@ class CDG_Core_Admin
   {
     check_ajax_referer("cdg_core_user_search", "nonce");
 
-    if (!current_user_can("manage_options")) {
+    if (!current_user_can(self::capability())) {
       wp_send_json_error("permission_denied", 403);
     }
 
@@ -64,7 +80,7 @@ class CDG_Core_Admin
     add_options_page(
       __("CDG Core Settings", "cdg-core"),
       __("CDG Core", "cdg-core"),
-      "manage_options",
+      self::capability(),
       "cdg-core-settings",
       [$this, "render_settings_page"]
     );
@@ -130,7 +146,7 @@ class CDG_Core_Admin
       wp_die(__("Security check failed.", "cdg-core"));
     }
 
-    if (!current_user_can("manage_options")) {
+    if (!current_user_can(self::capability())) {
       wp_die(__("Permission denied.", "cdg-core"));
     }
 
@@ -171,7 +187,7 @@ class CDG_Core_Admin
       wp_die(__("Security check failed.", "cdg-core"));
     }
 
-    if (!current_user_can("manage_options")) {
+    if (!current_user_can(self::capability())) {
       wp_die(__("Permission denied.", "cdg-core"));
     }
 
@@ -533,7 +549,7 @@ class CDG_Core_Admin
 
   public function render_settings_page(): void
   {
-    if (!current_user_can("manage_options")) {
+    if (!current_user_can(self::capability())) {
       return;
     }
 
