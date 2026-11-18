@@ -723,6 +723,12 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
      */
     public function output_admin_bar_logo_css(): void
     {
+      // Logged-out visitors (and anyone with the toolbar turned off) have
+      // no admin bar, so don't send them the CSS.
+      if (!is_admin_bar_showing()) {
+        return;
+      }
+
       $url = CDG_CORE_URL . "admin/images/admin-bar-icon.svg";
 
       printf(

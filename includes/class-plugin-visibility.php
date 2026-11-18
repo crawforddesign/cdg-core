@@ -67,6 +67,13 @@ class CDG_Core_Plugin_Visibility
             return;
         }
 
+        // Only capture for users who can open CDG Core Settings. Every role
+        // sees a different menu, so capturing for everyone rewrote this
+        // transient each time an admin and an editor took turns in wp-admin.
+        if (!current_user_can(CDG_Core_Admin::capability())) {
+            return;
+        }
+
         $items = [];
 
         foreach ($menu as $item) {

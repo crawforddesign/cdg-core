@@ -151,6 +151,12 @@ class CDG_Core_Cleanup
     {
         global $wp_meta_boxes;
 
+        // Same reasoning as the sidebar capture: widgets vary by role, so
+        // only capture the list for users who manage CDG Core Settings.
+        if (!current_user_can(CDG_Core_Admin::capability())) {
+            return;
+        }
+
         if (
             !isset($wp_meta_boxes['dashboard']) ||
             !is_array($wp_meta_boxes['dashboard'])
