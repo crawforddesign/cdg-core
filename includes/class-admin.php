@@ -1580,13 +1580,13 @@ class CDG_Core_Admin
 
     $this->card("Query Optimizations", "", function () use ($s) {
       $this->row(
-        "Optimize Search Queries",
-        "Adds post type limits to search queries to reduce database load.",
+        "Search Results Per Page",
+        "Shows 20 results per search page instead of the Reading setting. Off by default: this makes each search page do more work, not less.",
         $this->sw("optimize_search", $s["optimize_search"])
       );
       $this->row(
         "Optimize Archive Queries",
-        "Limits fields returned for archive page listings.",
+        "Shows 10 posts per page on category and tag archives, overriding the Reading setting.",
         $this->sw("optimize_archives", $s["optimize_archives"])
       );
     });
@@ -1594,7 +1594,7 @@ class CDG_Core_Admin
     $this->card("Images", "", function () use ($s) {
       $this->row(
         "Native Lazy Loading",
-        'Adds <code>loading="lazy"</code> and aspect-ratio CSS to images to reduce Cumulative Layout Shift.',
+        'Adds <code>loading="lazy"</code> and aspect-ratio CSS to images rendered by WordPress. Off by default: WordPress already lazy-loads images below the fold, and Divi modules render their own image tags, which this doesn\'t touch.',
         $this->sw("enable_lazy_loading", $s["enable_lazy_loading"])
       );
 
@@ -3146,12 +3146,12 @@ class CDG_Core_Admin
         $this->section_label("Query Optimizations");
         echo '<div class="cdg-guide-body cdg-guide-group">';
         $this->guide_item(
-          "Optimize Search",
-          "Limits search queries to specific post types, reducing the number of database rows scanned per search request."
+          "Search Results Per Page",
+          "Shows 20 results per search results page instead of the number set under Settings &rsaquo; Reading. Off by default, since more results per page means more work per search."
         );
         $this->guide_item(
           "Optimize Archives",
-          "Restricts the fields returned by archive page queries to reduce memory usage per request."
+          "Shows 10 posts per page on category and tag archives, overriding the number set under Settings &rsaquo; Reading."
         );
         echo "</div>";
 
@@ -3159,11 +3159,11 @@ class CDG_Core_Admin
         echo '<div class="cdg-guide-body cdg-guide-group">';
         $this->guide_item(
           "Native Lazy Loading",
-          'Adds <code>loading="lazy"</code> and an <code>aspect-ratio</code> inline style to images, reducing Cumulative Layout Shift and deferring off-screen image loads.'
+          'Adds <code>loading="lazy"</code> and an <code>aspect-ratio</code> inline style to images rendered by WordPress (not by Divi modules). Off by default: WordPress has lazy-loaded images natively since 5.5 and deliberately leaves the first images on a page eager, so this setting can only add lazy loading where WordPress chose not to. The hero image (<code>fetchpriority="high"</code>) is always left alone.'
         );
         $this->guide_item(
           "Always Remove medium_large",
-          "Prevents WordPress from generating the 768px intermediate size on every upload. This size is rarely used on Divi sites and wastes disk space and upload time."
+          "Prevents WordPress from generating the 768px intermediate size on every upload. Divi replaces every image <code>srcset</code> (its own modules and WordPress\'s) with its own 480 / 980 / 1280px responsive sizes, so the 768px file is never served on a Divi site and only costs disk space and upload time."
         );
         $this->guide_item(
           "Disable Image Sizes",

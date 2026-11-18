@@ -208,9 +208,9 @@ input[type=text], input[type=email], input[type=url], input[type=password], inpu
       "gutenberg_mode" => "optimize",
 
       // Performance
-      "optimize_search" => true,
+      "optimize_search" => false, // 20 results per search page (WordPress default is 10)
       "optimize_archives" => true,
-      "enable_lazy_loading" => true,
+      "enable_lazy_loading" => false, // core already lazy-loads; Divi renders its own <img> tags
       "remove_medium_large" => true,
       "remove_dns_prefetch" => true,
 
