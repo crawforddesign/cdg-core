@@ -649,9 +649,27 @@ class CDG_Core_WebP_Bulk
             return;
         }
 
-        \WP_CLI::add_command("cdg webp convert", function (): void {
-            $this->cli_convert();
-        });
+        \WP_CLI::add_command(
+            "cdg webp convert",
+            function ($args = [], $assoc_args = []): void {
+                if (!empty($assoc_args["force"])) {
+                    CDG_Core_WebP_Support::$force_reconvert = true;
+                    \WP_CLI::log("Rebuilding existing WebP files at the configured quality.");
+                }
+                $this->cli_convert();
+            },
+            [
+                "shortdesc" => "Create WebP copies (and compress, per the mode) for every image in the Media Library.",
+                "synopsis" => [
+                    [
+                        "type" => "flag",
+                        "name" => "force",
+                        "optional" => true,
+                        "description" => "Rebuild WebP files that already exist (e.g. ones made before 1.11.6 at quality 86).",
+                    ],
+                ],
+            ],
+        );
         \WP_CLI::add_command("cdg webp replace", function (): void {
             $this->cli_replace();
         });

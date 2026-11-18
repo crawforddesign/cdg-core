@@ -60,6 +60,16 @@ class CDG_Core_WebP_Support
     private array $url_patterns = [];
 
     /**
+     * When true, convert_file() rebuilds WebP files that already exist
+     * instead of skipping them. Set by `wp cdg webp convert --force`, e.g.
+     * to re-encode WebPs made before 1.11.6 (which used quality 86
+     * regardless of the setting).
+     *
+     * @var bool
+     */
+    public static bool $force_reconvert = false;
+
+    /**
      * Constructor
      *
      * @param CDG_Core $plugin Plugin instance
@@ -916,6 +926,7 @@ class CDG_Core_WebP_Support
 
         // Don't reconvert a newer-or-equal WebP that already exists.
         if (
+            !self::$force_reconvert &&
             $this->webp_exists($webp_path) &&
             filemtime($webp_path) >= filemtime($path)
         ) {
@@ -968,7 +979,16 @@ class CDG_Core_WebP_Support
         }
         $editor->set_quality($quality);
 
+        // Saving in a different format makes WordPress reset the quality
+        // to its own default for that format (86 for WebP), so set_quality()
+        // above is ignored. Force the configured quality for this save.
+        $force_quality = static function ($default, $mime = "") use ($quality) {
+            return $mime === "image/webp" ? $quality : $default;
+        };
+        add_filter("wp_editor_set_quality", $force_quality, PHP_INT_MAX, 2);
         $saved = @$editor->save($dst, "image/webp");
+        remove_filter("wp_editor_set_quality", $force_quality, PHP_INT_MAX);
+
         return !is_wp_error($saved) && !empty($saved["path"]) &&
             $this->webp_exists($saved["path"]) &&
             ($saved["path"] === $dst || @rename($saved["path"], $dst));
