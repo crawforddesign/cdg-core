@@ -69,6 +69,10 @@ class CDG_Core_WebP_Support
         $this->plugin = $plugin;
         self::$instance = $this;
 
+        // Registered whether or not WebP is on, so switching it on also
+        // clears Divi's cached CSS (see maybe_clear_divi_cache()).
+        add_action("update_option_cdg_core_settings", [$this, "maybe_clear_divi_cache"], 10, 2);
+
         if ($this->plugin->get_setting("enable_webp")) {
             $this->setup_hooks();
         }
@@ -130,7 +134,13 @@ class CDG_Core_WebP_Support
             // Catch everything the filters can't (widgets, theme output,
             // Divi inline CSS, hard-coded URLs) with one pass over the page.
             add_action("template_redirect", [$this, "maybe_start_buffer"], 0);
+
+            // Divi writes module CSS (section/row/module background images)
+            // to static files in wp-content/et-cache/, which the page pass
+            // above never sees. Rewrite the CSS before Divi writes it.
+            add_filter("et_core_page_resource_get_data", [$this, "swap_divi_resource_data"], 10, 3);
         }
+
 
         // Admin notice if the server can't actually generate WebP.
         add_action("admin_notices", [$this, "maybe_show_converter_missing_notice"]);
@@ -454,6 +464,60 @@ class CDG_Core_WebP_Support
         }
 
         return $this->swap_html($content);
+    }
+
+    /**
+     * Rewrite image URLs in Divi's page CSS (before it is written to
+     * wp-content/et-cache/ or printed inline).
+     *
+     * @param mixed  $data     Resource data: priority => list of CSS strings
+     * @param string $context  "file" or "inline"
+     * @param mixed  $resource ET_Core_PageResource instance
+     * @return mixed
+     */
+    public function swap_divi_resource_data($data, $context = "", $resource = null)
+    {
+        if (!is_array($data) || !$this->should_swap()) {
+            return $data;
+        }
+        if (is_object($resource) && isset($resource->type) && $resource->type !== "style") {
+            return $data;
+        }
+
+        foreach ($data as $priority => $parts) {
+            if (!is_array($parts)) {
+                continue;
+            }
+            foreach ($parts as $i => $css) {
+                if (is_string($css) && $css !== "") {
+                    $data[$priority][$i] = $this->rewrite_urls($css);
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Clear Divi's cached CSS when WebP on/off or mode changes, so no cached
+     * file keeps pointing at .webp files that are no longer being served
+     * (or misses ones that now are).
+     *
+     * @param mixed $old Previous cdg_core_settings value
+     * @param mixed $new New cdg_core_settings value
+     * @return void
+     */
+    public function maybe_clear_divi_cache($old, $new): void
+    {
+        $old = is_array($old) ? $old : [];
+        $new = is_array($new) ? $new : [];
+
+        foreach (["enable_webp", "webp_mode"] as $key) {
+            if (($old[$key] ?? null) !== ($new[$key] ?? null)) {
+                CDG_Core_WebP_Bulk::clear_builder_caches();
+                return;
+            }
+        }
     }
 
     /**

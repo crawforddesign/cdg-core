@@ -793,6 +793,11 @@ class CDG_Core_WebP_Bulk
         if (empty($ids)) {
             $status["done"] = true;
             $status["phase"] = "done";
+
+            // Divi's cached CSS files were written before these .webp
+            // files existed, so they still point at JPG/PNG. Clear them so
+            // Divi rebuilds them (with WebP URLs) on the next page view.
+            self::clear_builder_caches();
             update_option(self::LAST_RUN_OPTION, [
                 "finished_at" => time(),
                 "converted" => $status["converted"] ?? 0,
@@ -1030,7 +1035,7 @@ class CDG_Core_WebP_Bulk
      *
      * @return void
      */
-    private function clear_builder_caches(): void
+    public static function clear_builder_caches(): void
     {
         $dir = trailingslashit(WP_CONTENT_DIR) . "et-cache";
         if (is_dir($dir)) {
